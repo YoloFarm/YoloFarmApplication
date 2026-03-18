@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: yolofarm_service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/yolofarm_db
+    username: admin
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  signerKey: ${JWT_SIGNER_KEY}
+  valid-duration: 300 # in second
+  refreshable-duration: 1800 # in second
+
+adafruit:
+  mqtt:
+    url: tcp://io.adafruit.com:1883
+    username: ${ADAFRUIT_AIO_USERNAME}
+    password: ${ADAFRUIT_AIO_KEY}
+    client-id: "yolofarm-backend-server"
+    topic-telemetry: "${ADAFRUIT_AIO_USERNAME}/feeds/thong-tin-cam-bien"
+    topic-control: "${ADAFRUIT_AIO_USERNAME}/feeds/dieu-khien-thiet-bi"
