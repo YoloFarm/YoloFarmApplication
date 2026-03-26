@@ -19,7 +19,9 @@ public enum ErrorCode {
     DEVICE_ALREADY_EXISTS( "Device already exists", HttpStatus.BAD_REQUEST),
     INVALID_KEY( "Invalid key", HttpStatus.BAD_REQUEST),
     DEVICE_NOT_FOUND( "Device not found", HttpStatus.NOT_FOUND),
-    NO_TELEMETRY_DATA( "No telemetry data", HttpStatus.NOT_FOUND)
+    NO_TELEMETRY_DATA( "No telemetry data", HttpStatus.NOT_FOUND),
+    DEVICE_COMPONENT_NOT_FOUND( "Device component not found", HttpStatus.NOT_FOUND),
+    CODE_NAME_ALREADY_EXISTS_ON_DEVICE( "Code name already exists on device", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode( String message, HttpStatus statusCode) {

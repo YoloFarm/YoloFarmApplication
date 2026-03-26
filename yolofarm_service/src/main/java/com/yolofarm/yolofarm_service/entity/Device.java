@@ -25,5 +25,7 @@ public class Device extends BaseAuditingEntity {
 
     private DeviceStatus status;
 
-    private boolean active;
+    @Column(nullable = false)
+    @Builder.Default // Nếu bác dùng @Builder của Lombok
+    private boolean active = true;
 }

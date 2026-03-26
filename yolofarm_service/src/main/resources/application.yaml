@@ -22,7 +22,7 @@ spring:
 
 jwt:
   signerKey: ${JWT_SIGNER_KEY}
-  valid-duration: 300 # in second
+  valid-duration: 30000 # in second
   refreshable-duration: 1800 # in second
 
 adafruit:
