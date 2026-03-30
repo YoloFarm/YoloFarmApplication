@@ -14,6 +14,7 @@ import com.yolofarm.yolofarm_service.repository.DeviceComponentRepository;
 import com.yolofarm.yolofarm_service.repository.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,12 +29,14 @@ public class DeviceControlService {
     private final MqttGateway mqttGateway;
     private final ObjectMapper objectMapper;
 
+    @Value("${adafruit.mqtt.username}")
+    private String adafruitUsername;
+
     @Transactional
     public ControlResponse sendControlCommand(ControlRequest request) {
 
         Device device = deviceRepository.findByDeviceIdAndActiveTrue(request.getDeviceId())
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
-
 
         DeviceComponent component = componentRepository.findByDevice_DeviceIdAndCodeNameAndActiveTrue(request.getDeviceId(), request.getCommand())
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_COMPONENT_NOT_FOUND));
@@ -48,9 +51,16 @@ public class DeviceControlService {
         DeviceAction actionLogSaved = actionRepository.save(actionLog);
 
         try {
-            String jsonPayload = objectMapper.writeValueAsString(request);
-            mqttGateway.sendToMqtt(jsonPayload);
-            log.info(">>> ĐÃ GỬI LỆNH ĐIỀU KHIỂN: {}", jsonPayload);
+            // BUILD TOPIC ĐỘNG: Ví dụ "canhoangha/feeds/yolo001-pump1"
+            String feedName = request.getDeviceId().toLowerCase().replace("-", "") + "-" + request.getCommand().toLowerCase();
+            String dynamicTopic = adafruitUsername + "/feeds/" + feedName;
+            String payloadToSend = request.getAction(); // VD: "ON"
+
+            // Nếu JSON thì mở dòng này ra:
+            // String payloadToSend = objectMapper.writeValueAsString(request);
+
+            mqttGateway.sendToMqtt(dynamicTopic, payloadToSend);
+            log.info(">>> ĐÃ GỬI LỆNH ĐIỀU KHIỂN XUỐNG FEED [{}]: {}", dynamicTopic, payloadToSend);
 
             return ControlResponse.builder()
                     .deviceId(request.getDeviceId())
@@ -60,7 +70,6 @@ public class DeviceControlService {
                     .build();
         } catch (Exception e) {
             log.error(">>> LỖI GỬI LỆNH MQTT: {}", e.getMessage());
-            // Ném exception để Transactional tự động Rollback (huỷ cập nhật linh kiện và lịch sử nếu mạng rớt)
             throw new RuntimeException("Không thể gửi lệnh đến Adafruit IO");
         }
     }
