@@ -31,5 +31,5 @@ adafruit:
     username: ${ADAFRUIT_AIO_USERNAME}
     password: ${ADAFRUIT_AIO_KEY}
     client-id: "yolofarm-backend-server"
-    topic-telemetry: "${ADAFRUIT_AIO_USERNAME}/feeds/thong-tin-cam-bien"
+    topic-telemetry: "${ADAFRUIT_AIO_USERNAME}/feeds/+"
     topic-control: "${ADAFRUIT_AIO_USERNAME}/feeds/dieu-khien-thiet-bi"

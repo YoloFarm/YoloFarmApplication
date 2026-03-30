@@ -10,9 +10,9 @@ import java.util.Optional;
 
 @Repository
 public interface SensorTelemetryRepository extends JpaRepository<SensorTelemetry, Long> {
-    // 1. Lấy 1 bản ghi mới nhất của một thiết bị (Order By CreatedAt Desc limit 1)
-    Optional<SensorTelemetry> findTopByDevice_DeviceIdOrderByCreatedAtDesc(String deviceId);
+    // Tìm giá trị MỚI NHẤT của 1 loại cảm biến trên 1 thiết bị
+    Optional<SensorTelemetry> findTopByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(String deviceId, String sensorType);
 
-    // 2. Lấy danh sách lịch sử của thiết bị, có phân trang, sắp xếp mới nhất lên đầu
-    Page<SensorTelemetry> findByDevice_DeviceIdOrderByCreatedAtDesc(String deviceId, Pageable pageable);
+    // Tìm lịch sử (phân trang) của 1 loại cảm biến trên 1 thiết bị
+    Page<SensorTelemetry> findByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(String deviceId, String sensorType, Pageable pageable);
 }

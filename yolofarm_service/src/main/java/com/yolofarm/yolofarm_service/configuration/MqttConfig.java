@@ -80,16 +80,18 @@ public class MqttConfig {
     @ServiceActivator(inputChannel = "mqttInputChannel")
     public MessageHandler handler() {
         return message -> {
-            String topic = message.getHeaders().get("mqtt_receivedTopic").toString();
+            // Dùng hằng số của Spring Integration để lấy Topic chuẩn xác
+            String topic = message.getHeaders().get(org.springframework.integration.mqtt.support.MqttHeaders.RECEIVED_TOPIC).toString();
             String payload = message.getPayload().toString();
 
             log.info("======================================");
-            log.info("TIN NHẮN MỚI TỪ ADAFRUIT IO!");
-            log.info("Topic: " + topic);
-            log.info("Nội dung JSON: " + payload);
+            log.info("TIN NHẮN TỪ ADAFRUIT IO");
+            log.info("Topic: {}", topic);
+            log.info("Payload: {}", payload);
             log.info("======================================");
 
-            telemetryService.processAndSave(payload);
+            // Truyền CẢ TOPIC VÀ PAYLOAD sang Service xử lý
+            telemetryService.processAndSave(topic, payload);
         };
     }
 
