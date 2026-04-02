@@ -19,8 +19,7 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      url: ${REDIS_URL}
 
 jwt:
   signerKey: ${JWT_SIGNER_KEY}
