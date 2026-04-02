@@ -1,0 +1,32 @@
+<div class="login-wrapper">
+  <section class="login-card fade-in">
+    <p class="eyebrow">YoloFarm MVP</p>
+    <h1>Sign In</h1>
+    <p class="subtitle">Use <strong>admin/admin</strong> for your first demo run.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="login-form">
+      <label>
+        Username
+        <input type="text" formControlName="username" placeholder="Enter username" autocomplete="username" />
+      </label>
+
+      <label>
+        Password
+        <input
+          type="password"
+          formControlName="password"
+          placeholder="Enter password"
+          autocomplete="current-password"
+        />
+      </label>
+
+      @if (errorMessage()) {
+        <p class="error-message">{{ errorMessage() }}</p>
+      }
+
+      <button type="submit" class="btn" [disabled]="isSubmitting()">
+        {{ isSubmitting() ? 'Signing in...' : 'Sign In' }}
+      </button>
+    </form>
+  </section>
+</div>

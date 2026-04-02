@@ -1,0 +1,140 @@
+.telemetry-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.page-header h2 {
+  margin: 0.35rem 0;
+}
+
+.filters {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.chart-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.chart-controls {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.inline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.inline-toggle input {
+  width: auto;
+}
+
+.custom-range-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.chart-wrap {
+  position: relative;
+  min-height: 290px;
+}
+
+.alert {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.alert.danger {
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-elevated));
+  color: var(--danger);
+}
+
+.latest-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.latest-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.latest-grid p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.latest-grid strong {
+  font-size: 1.1rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.pagination p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filters,
+  .chart-controls,
+  .custom-range-row {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .latest-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pagination {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

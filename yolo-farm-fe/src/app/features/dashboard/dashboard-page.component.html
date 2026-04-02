@@ -1,0 +1,118 @@
+<section class="dashboard-page fade-in">
+  <header class="page-header card">
+    <div>
+      <p class="eyebrow">Overview</p>
+      <h2>MVP Control Center</h2>
+      <p class="subtitle">Live status from devices and latest telemetry snapshots.</p>
+    </div>
+    <button type="button" class="btn btn-secondary" (click)="refreshDashboard()" [disabled]="isLoading()">
+      {{ isLoading() ? 'Refreshing...' : 'Refresh' }}
+    </button>
+  </header>
+
+  @if (errorMessage()) {
+    <p class="alert">{{ errorMessage() }}</p>
+  }
+
+  <div class="stat-grid">
+    <article class="card stat">
+      <p>Total Devices</p>
+      <h3>{{ devices().length }}</h3>
+    </article>
+
+    <article class="card stat">
+      <p>Online</p>
+      <h3>{{ onlineCount() }}</h3>
+    </article>
+
+    <article class="card stat">
+      <p>Offline</p>
+      <h3>{{ offlineCount() }}</h3>
+    </article>
+  </div>
+
+  <section class="card quick-control">
+    <div>
+      <h3>Quick Control</h3>
+      <p class="subtitle">Send direct command via /api/control</p>
+    </div>
+
+    <form [formGroup]="controlForm" (ngSubmit)="sendQuickCommand()" class="quick-control-form">
+      <label>
+        Device
+        <select formControlName="deviceId">
+          <option value="" disabled>Select device</option>
+          @for (device of devices(); track device.id) {
+            <option [value]="device.deviceId">{{ device.name }} ({{ device.deviceId }})</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Command
+        <select formControlName="command">
+          @for (command of commandOptions; track command) {
+            <option [value]="command">{{ command }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Action
+        <select formControlName="action">
+          @for (action of actionOptions; track action) {
+            <option [value]="action">{{ action }}</option>
+          }
+        </select>
+      </label>
+
+      <button type="submit" class="btn" [disabled]="isSendingCommand() || !hasDevices()">
+        {{ isSendingCommand() ? 'Sending...' : 'Send Command' }}
+      </button>
+    </form>
+
+    @if (commandFeedback()) {
+      <p class="feedback">{{ commandFeedback() }}</p>
+    }
+  </section>
+
+  <section class="snapshot-grid">
+    @for (snapshot of snapshots(); track snapshot.device.id) {
+      <article class="card snapshot">
+        <div class="snapshot-head">
+          <h3>{{ snapshot.device.name }}</h3>
+          <span class="chip" [class.online]="snapshot.device.status === 'ONLINE'">
+            {{ snapshot.device.status }}
+          </span>
+        </div>
+
+        <p class="snapshot-id">{{ snapshot.device.deviceId }}</p>
+
+        @if (snapshot.telemetry) {
+          <div class="telemetry-grid">
+            <div>
+              <p>Temperature</p>
+              <strong>{{ snapshot.telemetry.temperature ?? '--' }} C</strong>
+            </div>
+            <div>
+              <p>Humidity</p>
+              <strong>{{ snapshot.telemetry.humidity ?? '--' }} %</strong>
+            </div>
+            <div>
+              <p>Soil</p>
+              <strong>{{ snapshot.telemetry.soilMoisture ?? '--' }} %</strong>
+            </div>
+            <div>
+              <p>Light</p>
+              <strong>{{ snapshot.telemetry.light ?? '--' }}</strong>
+            </div>
+          </div>
+
+          <p class="timestamp">Updated {{ snapshot.telemetry.createdAt | date: 'short' }}</p>
+        } @else {
+          <p class="subtitle">No telemetry data yet.</p>
+        }
+      </article>
+    }
+  </section>
+</section>

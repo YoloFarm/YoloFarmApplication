@@ -1,0 +1,174 @@
+<section class="telemetry-page fade-in">
+  <header class="card page-header">
+    <div>
+      <p class="eyebrow">Sensor Telemetry</p>
+      <h2>Chart + Realtime + History</h2>
+      <p class="subtitle">Read data from /api/telemetry/latest and /api/telemetry/history.</p>
+    </div>
+
+    <button type="button" class="btn btn-secondary" (click)="loadTelemetry()" [disabled]="loading()">
+      {{ loading() ? 'Refreshing...' : 'Refresh All' }}
+    </button>
+  </header>
+
+  @if (errorMessage()) {
+    <p class="alert danger">{{ errorMessage() }}</p>
+  }
+
+  <section class="card chart-card">
+    <div class="chart-controls">
+      <label>
+        Device
+        <select [value]="selectedDeviceId()" (change)="onDeviceChange($any($event.target).value)">
+          <option value="" disabled>Select device</option>
+          @for (device of devices(); track device.id) {
+            <option [value]="device.deviceId">{{ device.name }} ({{ device.deviceId }})</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Metric
+        <select [value]="selectedMetric()" (change)="onMetricChange($any($event.target).value)">
+          @for (metric of metricOptions; track metric.key) {
+            <option [value]="metric.key">{{ metric.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Range
+        <select [value]="selectedRange()" (change)="onRangeChange($any($event.target).value)">
+          @for (range of rangeOptions; track range.key) {
+            <option [value]="range.key">{{ range.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="inline-toggle">
+        <input
+          type="checkbox"
+          [checked]="realtimeEnabled()"
+          (change)="toggleRealtime($any($event.target).checked)"
+        />
+        Realtime 10s
+      </label>
+
+      <button type="button" class="btn btn-secondary" (click)="refreshChart()" [disabled]="chartLoading()">
+        {{ chartLoading() ? 'Updating...' : 'Refresh Chart' }}
+      </button>
+    </div>
+
+    @if (selectedRange() === 'custom') {
+      <div class="custom-range-row">
+        <label>
+          Start
+          <input
+            type="datetime-local"
+            [value]="customStart()"
+            (change)="onCustomStartChange($any($event.target).value)"
+          />
+        </label>
+
+        <label>
+          End
+          <input
+            type="datetime-local"
+            [value]="customEnd()"
+            (change)="onCustomEndChange($any($event.target).value)"
+          />
+        </label>
+
+        <button type="button" class="btn btn-secondary" (click)="applyCustomRange()" [disabled]="chartLoading()">
+          Apply Custom Range
+        </button>
+      </div>
+    }
+
+    <div class="chart-wrap">
+      @if (!chartPoints().length && !chartLoading()) {
+        <p class="subtitle">No telemetry points in the selected range.</p>
+      } @else {
+        <canvas baseChart [data]="chartData()" [options]="chartOptions" [type]="'line'"></canvas>
+      }
+    </div>
+
+    @if (lastRealtimeSync()) {
+      <p class="subtitle">Last realtime sync: {{ lastRealtimeSync() | date: 'shortTime' }}</p>
+    }
+  </section>
+
+  <section class="card latest-card">
+    <h3>Latest Telemetry</h3>
+
+    @if (latestTelemetry()) {
+      <div class="latest-grid">
+        <div>
+          <p>Temperature</p>
+          <strong>{{ latestTelemetry()?.temperature ?? '--' }} C</strong>
+        </div>
+        <div>
+          <p>Humidity</p>
+          <strong>{{ latestTelemetry()?.humidity ?? '--' }} %</strong>
+        </div>
+        <div>
+          <p>Soil Moisture</p>
+          <strong>{{ latestTelemetry()?.soilMoisture ?? '--' }} %</strong>
+        </div>
+        <div>
+          <p>Light</p>
+          <strong>{{ latestTelemetry()?.light ?? '--' }}</strong>
+        </div>
+      </div>
+      <p class="subtitle">Updated {{ latestTelemetry()?.createdAt | date: 'short' }}</p>
+    } @else {
+      <p class="subtitle">No latest telemetry available.</p>
+    }
+  </section>
+
+  <section class="card history-card">
+    <h3>Telemetry History</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Temp (C)</th>
+            <th>Humidity (%)</th>
+            <th>Soil (%)</th>
+            <th>Light</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of history(); track item.id) {
+            <tr>
+              <td>{{ item.createdAt | date: 'short' }}</td>
+              <td>{{ item.temperature ?? '--' }}</td>
+              <td>{{ item.humidity ?? '--' }}</td>
+              <td>{{ item.soilMoisture ?? '--' }}</td>
+              <td>{{ item.light ?? '--' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button type="button" class="btn btn-secondary" (click)="previousPage()" [disabled]="page() === 0">
+        Previous
+      </button>
+
+      <p>Page {{ page() + 1 }} / {{ totalPages() || 1 }} • {{ totalElements() }} records</p>
+
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="nextPage()"
+        [disabled]="page() + 1 >= totalPages()"
+      >
+        Next
+      </button>
+    </div>
+  </section>
+</section>
