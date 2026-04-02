@@ -1,7 +1,7 @@
 # ==========================================
 # STAGE 1: BUILD
 # ==========================================
-FROM maven:3.9.6-eclipse-temurin-17-alpine AS builder
+FROM maven:3.9.6-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 
 COPY pom.xml .
@@ -13,7 +13,7 @@ RUN mvn clean package -DskipTests
 # ==========================================
 # STAGE 2: RUNTIME
 # ==========================================
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 COPY --from=builder /app/target/*.jar app.jar
