@@ -1,8 +1,8 @@
 package com.yolofarm.yolofarm_service.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
+        import lombok.*;
+        import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -13,28 +13,21 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SensorTelemetry {
+public class SensorTelemetry extends BaseAuditingEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "device_id")
+    @JoinColumn(name = "device_id", nullable = false)
     private Device device;
 
-    // Khớp với JSON { "temperature": 32.5, "humidity": 60.0, "soilMoisture": 45.0, "light": 1024 }
-    private Float temperature;
+    // Tên loại cảm biến: "TEMPERATURE", "HUMIDITY", "SOIL_MOISTURE"
+    @Column(nullable = false)
+    private String sensorType;
 
-    private Float humidity;
-
-    @Column(name = "soil_moisture")
-    private Float soilMoisture;
-
-    @Column(name = "light")
-    private Integer light;
-
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    // Giá trị đo được (Lưu kiểu Double để bao trọn mọi loại số)
+    @Column(nullable = false)
+    private Double value;
 }

@@ -2,12 +2,15 @@ package com.yolofarm.yolofarm_service.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yolofarm.yolofarm_service.dto.payload.TelemetryPayload;
-import com.yolofarm.yolofarm_service.dto.request.TelemetryResponse;
+import com.yolofarm.yolofarm_service.dto.response.TelemetryResponse;
 import com.yolofarm.yolofarm_service.entity.Device;
+import com.yolofarm.yolofarm_service.entity.DeviceAction;
+import com.yolofarm.yolofarm_service.entity.DeviceComponent;
 import com.yolofarm.yolofarm_service.entity.SensorTelemetry;
 import com.yolofarm.yolofarm_service.exception.AppException;
 import com.yolofarm.yolofarm_service.exception.ErrorCode;
+import com.yolofarm.yolofarm_service.repository.DeviceActionRepository;
+import com.yolofarm.yolofarm_service.repository.DeviceComponentRepository;
 import com.yolofarm.yolofarm_service.repository.DeviceRepository;
 import com.yolofarm.yolofarm_service.repository.SensorTelemetryRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +19,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -26,55 +31,100 @@ public class TelemetryService {
 
     private final SensorTelemetryRepository repository;
     private final DeviceRepository deviceRepository;
+    private final DeviceComponentRepository componentRepository;
+    private final DeviceActionRepository actionRepository;
     private final ObjectMapper objectMapper;
     private final RedisService redisService;
 
 
     private static final String REDIS_KEY_PREFIX = "telemetry:latest:";
 
-    public void processAndSave(String jsonPayload) {
+    private static final Set<String> SENSOR_METRICS = Set.of("TEMP", "HUMIDITY", "SOIL_MOISTURE", "LIGHT");
+
+    @Transactional
+    public void processAndSave(String topic, String payload) {
         try {
-
-            TelemetryPayload data = objectMapper.readValue(jsonPayload, TelemetryPayload.class);
-
-            if (data.getDeviceId() == null || data.getDeviceId().isBlank()) {
-                log.warn(">>> CẢNH BÁO: Payload không chứa deviceId. Bỏ qua tin nhắn này! Payload: {}", jsonPayload);
+            // Bước 1: Lấy tên Feed từ Topic (VD: "canhoangha/feeds/yolo001-temp" -> "yolo001-temp")
+            String feedName = topic.substring(topic.lastIndexOf("/") + 1);
+            if (feedName.matches("\\d+") || !feedName.equals(feedName.toLowerCase())) {
+                return;
+            }
+            // Bước 2: Tách lấy mã thiết bị và loại cảm biến.
+            // GIẢ SỬ quy tắc đặt tên của team IoT là: [mã_thiết_bị]-[chỉ_số] (VD: yolo001-temp)
+            String[] parts = feedName.split("-");
+            if (parts.length < 2) {
+                log.warn("Bỏ qua feed không đúng định dạng: {}", feedName);
                 return;
             }
 
-            Device device = deviceRepository.findByDeviceId(data.getDeviceId())
-                    .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
+            // Map lại mã thiết bị cho khớp DB (VD: yolo001 -> YOLO-001)
+            String rawDeviceId = parts[0].toUpperCase();
+            String deviceId = rawDeviceId.substring(0, 4) + "-" + rawDeviceId.substring(4);
+            String metric = parts[1].toUpperCase(); // TEMP, HUMIDITY, PUMP1...
 
-            SensorTelemetry entity = SensorTelemetry.builder()
-                    .device(device)
-                    .temperature(data.getTemperature())
-                    .humidity(data.getHumidity())
-                    .soilMoisture(data.getSoilMoisture())
-                    .light(data.getLight())
-                    .build();
+            // Bước 3: Rẽ nhánh xử lý dựa trên loại metric
+            if (SENSOR_METRICS.contains(metric)) {
+                // Nếu tên feed thuộc nhóm cảm biến (Ví dụ: TEMP, LIGHT)
+                Double value = Double.parseDouble(payload);
+                handleTelemetry(deviceId, metric, value);
+            } else {
+                // Nếu không thuộc nhóm cảm biến, mặc định nó là Linh kiện (Ví dụ: PUMP1, FAN)
+                // Lúc này mới được phép quy đổi 0/1 thành ON/OFF
+                String action = (payload.equals("1") || payload.equalsIgnoreCase("ON")) ? "ON" : "OFF";
+                handleStateUpdate(deviceId, metric, action);
+            }
 
-
-            entity = repository.save(entity);
-
-
-            TelemetryResponse responseDto = mapToResponse(entity);
-            String jsonRedis = objectMapper.writeValueAsString(responseDto);
-            redisService.setValue(REDIS_KEY_PREFIX + device.getDeviceId(), jsonRedis, 1L, TimeUnit.DAYS);
-
-            log.info(">>> ĐÃ LƯU DỮ LIỆU CẢM BIẾN CHO [{}] VÀO DB VÀ REDIS THÀNH CÔNG!", device.getDeviceId());
-
-        } catch (JsonProcessingException e) {
-            log.error(">>> LỖI DỊCH JSON: Cấu trúc tin nhắn không hợp lệ. Lỗi: {}", e.getMessage());
-        } catch (AppException e) {
-            log.error(">>> LỖI NGHIỆP VỤ: {}", e.getMessage());
         } catch (Exception e) {
-            log.error(">>> LỖI HỆ THỐNG KHÔNG XÁC ĐỊNH: {}", e.getMessage(), e);
+            log.error(">>> LỖI XỬ LÝ MQTT ĐỘC LẬP: {}", e.getMessage(), e);
         }
     }
 
+    private void handleStateUpdate(String deviceId, String command, String action) {
+        Device device = deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thiết bị: " + deviceId));
 
-    public TelemetryResponse getLatestTelemetry(String deviceId) {
-        String cachedData = redisService.getValue(REDIS_KEY_PREFIX + deviceId);
+        DeviceComponent component = componentRepository.findByDevice_DeviceIdAndCodeNameAndActiveTrue(deviceId, command)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy linh kiện: " + command));
+
+        if (component.getStatus().equalsIgnoreCase(action)) {
+            log.info(">>> [ECHO] Bỏ qua bản tin từ phần cứng vì linh kiện [{}] đã ở trạng thái [{}]", command, action);
+            return;
+        }
+
+        component.setStatus(action);
+        componentRepository.save(component);
+
+        DeviceAction actionLog = DeviceAction.builder()
+                .device(device)
+                .command(command)
+                .action(action)
+                .build();
+        actionRepository.save(actionLog);
+
+        log.info(">>> ĐỒNG BỘ PHẦN CỨNG: Thiết bị [{}], Linh kiện [{}], Trạng thái [{}]", deviceId, command, action);
+    }
+
+    private void handleTelemetry(String deviceId, String sensorType, Double value) {
+        Device device = deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thiết bị: " + deviceId));
+
+        SensorTelemetry entity = SensorTelemetry.builder()
+                .device(device)
+                .sensorType(sensorType)
+                .value(value)
+                .build();
+
+        repository.save(entity);
+        log.info(">>> LƯU CẢM BIẾN: Thiết bị [{}], Loại [{}], Giá trị [{}]", deviceId, sensorType, value);
+    }
+
+
+    public TelemetryResponse getLatestTelemetry(String deviceId, String sensorType) {
+
+        // Cache Key giờ phải kẹp thêm sensorType: "telemetry:latest:YOLO-001:TEMP"
+        String cacheKey = REDIS_KEY_PREFIX + deviceId + ":" + sensorType;
+        String cachedData = redisService.getValue(cacheKey);
+
         if (cachedData != null) {
             try {
                 return objectMapper.readValue(cachedData, TelemetryResponse.class);
@@ -83,16 +133,17 @@ public class TelemetryService {
             }
         }
 
-        deviceRepository.findByDeviceId(deviceId)
+        deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
 
-        SensorTelemetry telemetry = repository.findTopByDevice_DeviceIdOrderByCreatedAtDesc(deviceId)
+        // Phải viết thêm hàm findTop... trong Repository để hỗ trợ tìm theo sensorType
+        SensorTelemetry telemetry = repository.findTopByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(deviceId, sensorType)
                 .orElseThrow(() -> new AppException(ErrorCode.NO_TELEMETRY_DATA));
 
         TelemetryResponse response = mapToResponse(telemetry);
 
         try {
-            redisService.setValue(REDIS_KEY_PREFIX + deviceId, objectMapper.writeValueAsString(response), 1L, TimeUnit.DAYS);
+            redisService.setValue(cacheKey, objectMapper.writeValueAsString(response), 1L, TimeUnit.DAYS);
         } catch (JsonProcessingException e) {
             log.error("Lỗi lưu JSON vào Redis: {}", e.getMessage());
         }
@@ -100,25 +151,25 @@ public class TelemetryService {
         return response;
     }
 
-
-    public Page<TelemetryResponse> getTelemetryHistory(String deviceId, int page, int size) {
-        deviceRepository.findByDeviceId(deviceId)
+    // 2. Lấy lịch sử của MỘT LOẠI CẢM BIẾN (Để vẽ biểu đồ trên Web)
+    public Page<TelemetryResponse> getTelemetryHistory(String deviceId, String sensorType, int page, int size) {
+        deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
 
         Pageable pageable = PageRequest.of(page, size);
 
-        return repository.findByDevice_DeviceIdOrderByCreatedAtDesc(deviceId, pageable)
+        // Phải viết thêm hàm findBy... trong Repository
+        return repository.findByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(deviceId, sensorType, pageable)
                 .map(this::mapToResponse);
     }
 
+    // 3. Hàm Map chuẩn cho Bảng dọc
     private TelemetryResponse mapToResponse(SensorTelemetry entity) {
         return TelemetryResponse.builder()
                 .id(entity.getId())
                 .deviceId(entity.getDevice().getDeviceId())
-                .temperature(entity.getTemperature())
-                .humidity(entity.getHumidity())
-                .soilMoisture(entity.getSoilMoisture())
-                .light(entity.getLight())
+                .sensorType(entity.getSensorType())
+                .value(entity.getValue())
                 .createdAt(entity.getCreatedAt())
                 .build();
     }

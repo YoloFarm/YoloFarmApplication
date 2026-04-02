@@ -30,5 +30,7 @@ public class User extends BaseAuditingEntity {
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    private boolean active;
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean active = true;
 }

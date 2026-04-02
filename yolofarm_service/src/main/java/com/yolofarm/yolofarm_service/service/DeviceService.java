@@ -24,7 +24,6 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
     private final DeviceMapper deviceMapper;
 
-    // 1. CREATE DEVICE
     public DeviceResponse createDevice(DeviceRequest request) {
         if (deviceRepository.existsByDeviceId(request.getDeviceId())) {
             throw new AppException(ErrorCode.DEVICE_ALREADY_EXISTS);
@@ -36,33 +35,25 @@ public class DeviceService {
     }
 
     public DeviceResponse getDeviceById(Long id) {
-        Device device = deviceRepository.findById(id)
+        Device device = deviceRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
-
-        if (!device.isActive()) {
-            throw new AppException(ErrorCode.DEVICE_NOT_FOUND); // Đã xóa mềm thì coi như ko thấy
-        }
 
         return deviceMapper.toDeviceResponse(device);
     }
 
-    // 3. GET ALL (PHÂN TRANG + SOFT DELETE)
+
     public Page<DeviceResponse> getAllDevices(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return deviceRepository.findAllByActiveTrue(pageable)
                 .map(deviceMapper::toDeviceResponse);
     }
 
-    // 4. UPDATE DEVICE
+
     public DeviceResponse updateDevice(Long id, DeviceRequest request) {
-        Device device = deviceRepository.findById(id)
+        Device device = deviceRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
 
-        if (!device.isActive()) {
-            throw new AppException(ErrorCode.DEVICE_NOT_FOUND);
-        }
 
-        // Chống lách luật: Nếu đổi sang deviceId khác mà ID đó lại bị thiết bị khác chiếm rồi thì văng lỗi
         if (!device.getDeviceId().equals(request.getDeviceId()) &&
                 deviceRepository.existsByDeviceId(request.getDeviceId())) {
             throw new AppException(ErrorCode.DEVICE_ALREADY_EXISTS);
@@ -74,7 +65,6 @@ public class DeviceService {
         return deviceMapper.toDeviceResponse(device);
     }
 
-    // 5. DELETE DEVICE (SOFT DELETE)
     public void deleteDevice(Long id) {
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));

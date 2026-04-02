@@ -6,12 +6,15 @@ import com.yolofarm.yolofarm_service.dto.request.ControlRequest;
 import com.yolofarm.yolofarm_service.dto.response.ControlResponse;
 import com.yolofarm.yolofarm_service.entity.Device;
 import com.yolofarm.yolofarm_service.entity.DeviceAction;
+import com.yolofarm.yolofarm_service.entity.DeviceComponent;
 import com.yolofarm.yolofarm_service.exception.AppException;
 import com.yolofarm.yolofarm_service.exception.ErrorCode;
 import com.yolofarm.yolofarm_service.repository.DeviceActionRepository;
+import com.yolofarm.yolofarm_service.repository.DeviceComponentRepository;
 import com.yolofarm.yolofarm_service.repository.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,20 +24,24 @@ import org.springframework.transaction.annotation.Transactional;
 public class DeviceControlService {
 
     private final DeviceRepository deviceRepository;
+    private final DeviceComponentRepository componentRepository;
     private final DeviceActionRepository actionRepository;
     private final MqttGateway mqttGateway;
     private final ObjectMapper objectMapper;
 
+    @Value("${adafruit.mqtt.username}")
+    private String adafruitUsername;
+
     @Transactional
     public ControlResponse sendControlCommand(ControlRequest request) {
-        // 1. Kiểm tra xem thiết bị có tồn tại (và đang active) không
-        Device device = deviceRepository.findByDeviceId(request.getDeviceId())
+
+        Device device = deviceRepository.findByDeviceIdAndActiveTrue(request.getDeviceId())
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
 
-        if (!device.isActive()) {
-            throw new AppException(ErrorCode.DEVICE_NOT_FOUND); // Xóa mềm rồi thì ko cho điều khiển
-        }
+        DeviceComponent component = componentRepository.findByDevice_DeviceIdAndCodeNameAndActiveTrue(request.getDeviceId(), request.getCommand())
+                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_COMPONENT_NOT_FOUND));
 
+        component.setStatus(request.getAction());
 
         DeviceAction actionLog = DeviceAction.builder()
                 .device(device)
@@ -44,9 +51,17 @@ public class DeviceControlService {
         DeviceAction actionLogSaved = actionRepository.save(actionLog);
 
         try {
-            String jsonPayload = objectMapper.writeValueAsString(request);
-            mqttGateway.sendToMqtt(jsonPayload);
-            log.info(">>> ĐÃ GỬI LỆNH ĐIỀU KHIỂN: {}", jsonPayload);
+            // BUILD TOPIC ĐỘNG: Ví dụ "canhoangha/feeds/yolo001-pump1"
+            String feedName = request.getDeviceId().toLowerCase().replace("-", "") + "-" + request.getCommand().toLowerCase();
+            String dynamicTopic = adafruitUsername + "/feeds/" + feedName;
+            String payloadToSend = request.getAction(); // VD: "ON"
+
+            // Nếu JSON thì mở dòng này ra:
+            // String payloadToSend = objectMapper.writeValueAsString(request);
+
+            mqttGateway.sendToMqtt(dynamicTopic, payloadToSend);
+            log.info(">>> ĐÃ GỬI LỆNH ĐIỀU KHIỂN XUỐNG FEED [{}]: {}", dynamicTopic, payloadToSend);
+
             return ControlResponse.builder()
                     .deviceId(request.getDeviceId())
                     .command(request.getCommand())
@@ -55,7 +70,6 @@ public class DeviceControlService {
                     .build();
         } catch (Exception e) {
             log.error(">>> LỖI GỬI LỆNH MQTT: {}", e.getMessage());
-            // Ném lỗi ra để Transactional rollback lại cái log trong DB (gửi xịt thì ko lưu lịch sử)
             throw new RuntimeException("Không thể gửi lệnh đến Adafruit IO");
         }
     }

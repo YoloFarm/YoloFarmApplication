@@ -1,0 +1,17 @@
+package com.yolofarm.yolofarm_service.dto.response;
+
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Data;
+import lombok.experimental.FieldDefaults;
+
+@Data
+@Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class DeviceComponentResponse {
+    Long id;
+    String deviceId;
+    String name;
+    String codeName;
+    String status;
+}
