@@ -1,11 +1,13 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: yolofarm_service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/yolofarm_db
-    username: admin
-    password: password
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/yolofarm_db}
+    username: ${DATABASE_USER:admin}
+    password: ${DATABASE_PASS:password}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -22,8 +24,8 @@ spring:
 
 jwt:
   signerKey: ${JWT_SIGNER_KEY}
-  valid-duration: 300 # in second
-  refreshable-duration: 1800 # in second
+  valid-duration: 300000 # in second
+  refreshable-duration: 1800000 # in second
 
 adafruit:
   mqtt:
