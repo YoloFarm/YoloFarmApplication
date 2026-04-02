@@ -31,3 +31,10 @@ Thumbs.db
 # Node (nếu có)
 node_modules/
 npm-debug.log
+
+
+# Python / AI
+yolofarm-ai/.venv/
+yolofarm-ai/__pycache__/
+yolofarm-ai/*.pkl
+yolofarm-ai/*.json
