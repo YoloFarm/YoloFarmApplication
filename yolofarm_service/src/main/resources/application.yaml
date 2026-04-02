@@ -21,6 +21,11 @@ spring:
     redis:
       url: ${REDIS_URL}
 
+#  data:
+#    redis:
+#      host: localhost
+#      port: 6379
+
 jwt:
   signerKey: ${JWT_SIGNER_KEY}
   valid-duration: 300000 # in second

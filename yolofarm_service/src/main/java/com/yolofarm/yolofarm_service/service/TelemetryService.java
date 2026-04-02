@@ -116,6 +116,9 @@ public class TelemetryService {
 
         repository.save(entity);
         log.info(">>> LƯU CẢM BIẾN: Thiết bị [{}], Loại [{}], Giá trị [{}]", deviceId, sensorType, value);
+
+        String cacheKey = REDIS_KEY_PREFIX + deviceId + ":" + sensorType;
+        redisService.deleteValue(cacheKey);
     }
 
 

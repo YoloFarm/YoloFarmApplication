@@ -17,6 +17,8 @@ import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannel
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
 import org.springframework.messaging.MessageChannel;
 
+import java.util.UUID;
+
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
@@ -65,9 +67,10 @@ public class MqttConfig {
     // 3. Kết nối ống của Spring Boot với ống của Adafruit
     @Bean
     public MessageProducer inbound() {
-        // Đăng ký lắng nghe cái Feed thong-tin-cam-bien
+        String uniqueClientId = clientId + "_inbound_" + UUID.randomUUID().toString();
+
         MqttPahoMessageDrivenChannelAdapter adapter =
-                new MqttPahoMessageDrivenChannelAdapter(clientId + "_inbound", mqttClientFactory(), topicTelemetry);
+                new MqttPahoMessageDrivenChannelAdapter(uniqueClientId, mqttClientFactory(), topicTelemetry);
         adapter.setCompletionTimeout(5000);
         adapter.setConverter(new DefaultPahoMessageConverter());
         adapter.setQos(1);
@@ -105,8 +108,10 @@ public class MqttConfig {
     @Bean
     @ServiceActivator(inputChannel = "mqttOutboundChannel")
     public MessageHandler mqttOutbound() {
+        String uniqueClientId = clientId + "_outbound_" + UUID.randomUUID().toString();
+
         MqttPahoMessageHandler messageHandler =
-                new MqttPahoMessageHandler(clientId + "_outbound", mqttClientFactory());
+                new MqttPahoMessageHandler(uniqueClientId, mqttClientFactory());
 
         messageHandler.setAsync(true);
         messageHandler.setDefaultTopic(topicControl);
