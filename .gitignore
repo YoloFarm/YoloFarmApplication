@@ -1,0 +1,5 @@
+# Python / AI
+yolofarm-ai/.venv/
+yolofarm-ai/__pycache__/
+yolofarm-ai/*.pkl
+yolofarm-ai/*.json

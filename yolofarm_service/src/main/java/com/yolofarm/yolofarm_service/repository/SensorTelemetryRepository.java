@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -15,4 +17,8 @@ public interface SensorTelemetryRepository extends JpaRepository<SensorTelemetry
 
     // Tìm lịch sử (phân trang) của 1 loại cảm biến trên 1 thiết bị
     Page<SensorTelemetry> findByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(String deviceId, String sensorType, Pageable pageable);
+
+    // Lấy dữ liệu của 1 thiết bị trong X giờ qua để làm đầu vào cho AI
+    List<SensorTelemetry> findByDevice_DeviceIdAndCreatedAtAfterOrderByCreatedAtAsc(
+            String deviceId, LocalDateTime time);
 }
