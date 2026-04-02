@@ -1,0 +1,56 @@
+<section class="card profile-page fade-in">
+  <h2>My Profile</h2>
+
+  @if (loading()) {
+    <p>Loading profile...</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="alert danger">{{ errorMessage() }}</p>
+  }
+
+  @if (infoMessage()) {
+    <p class="alert success">{{ infoMessage() }}</p>
+  }
+
+  @if (profile()) {
+    @if (!editMode()) {
+      <dl>
+        <dt>Username</dt>
+        <dd>{{ profile()?.username }}</dd>
+
+        <dt>Name</dt>
+        <dd>{{ profile()?.firstName }} {{ profile()?.lastName }}</dd>
+
+        <dt>Role</dt>
+        <dd>{{ profile()?.role }}</dd>
+      </dl>
+
+      <button type="button" class="btn" (click)="beginEdit()">Edit Profile</button>
+    } @else {
+      <form [formGroup]="form" (ngSubmit)="saveProfile()" class="profile-form">
+        <label>
+          First name
+          <input type="text" formControlName="firstName" placeholder="First name" />
+        </label>
+
+        <label>
+          Last name
+          <input type="text" formControlName="lastName" placeholder="Last name" />
+        </label>
+
+        <label>
+          New password (optional)
+          <input type="password" formControlName="password" placeholder="Leave blank to keep current" />
+        </label>
+
+        <div class="form-actions">
+          <button type="submit" class="btn" [disabled]="saving()">
+            {{ saving() ? 'Saving...' : 'Save Changes' }}
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Cancel</button>
+        </div>
+      </form>
+    }
+  }
+</section>

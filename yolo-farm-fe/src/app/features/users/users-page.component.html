@@ -1,0 +1,120 @@
+<section class="users-page fade-in">
+  <header class="card page-header">
+    <div>
+      <p class="eyebrow">Admin Console</p>
+      <h2>Users Management</h2>
+      <p class="subtitle">Create, update, and soft-delete users through /api/users.</p>
+    </div>
+  </header>
+
+  @if (errorMessage()) {
+    <p class="alert danger">{{ errorMessage() }}</p>
+  }
+
+  @if (infoMessage()) {
+    <p class="alert success">{{ infoMessage() }}</p>
+  }
+
+  <div class="content-grid">
+    <article class="card">
+      <h3>{{ isEditing() ? 'Edit User' : 'Create User' }}</h3>
+
+      <form [formGroup]="form" (ngSubmit)="submitForm()" class="user-form">
+        <label>
+          Username
+          <input type="text" formControlName="username" placeholder="john.doe" />
+        </label>
+
+        <label>
+          First name
+          <input type="text" formControlName="firstName" placeholder="John" />
+        </label>
+
+        <label>
+          Last name
+          <input type="text" formControlName="lastName" placeholder="Doe" />
+        </label>
+
+        <label>
+          Role
+          <select formControlName="role">
+            @for (role of roleOptions; track role) {
+              <option [value]="role">{{ role }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Password {{ isEditing() ? '(optional)' : '' }}
+          <input type="password" formControlName="password" placeholder="Enter password" />
+        </label>
+
+        <div class="form-actions">
+          <button type="submit" class="btn" [disabled]="saving()">
+            {{ saving() ? 'Saving...' : isEditing() ? 'Update User' : 'Create User' }}
+          </button>
+
+          @if (isEditing()) {
+            <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Cancel</button>
+          }
+        </div>
+      </form>
+    </article>
+
+    <article class="card table-card">
+      <div class="table-head">
+        <h3>Users</h3>
+        <button type="button" class="btn btn-secondary" (click)="loadUsers()" [disabled]="loading()">
+          {{ loading() ? 'Loading...' : 'Reload' }}
+        </button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Full Name</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users(); track user.id) {
+              <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.firstName ?? '-' }} {{ user.lastName ?? '' }}</td>
+                <td>
+                  <span class="chip" [class.online]="user.role === 'ADMIN'">{{ user.role }}</span>
+                </td>
+                <td>{{ user.active ? 'Active' : 'Inactive' }}</td>
+                <td class="actions">
+                  <button type="button" class="btn-link" (click)="startEdit(user)">Edit</button>
+                  <button type="button" class="btn-link danger" (click)="deleteUser(user)">Delete</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <button type="button" class="btn btn-secondary" (click)="previousPage()" [disabled]="page() === 0">
+          Previous
+        </button>
+
+        <p>Page {{ page() + 1 }} / {{ totalPages() || 1 }} • {{ totalElements() }} users</p>
+
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="nextPage()"
+          [disabled]="page() + 1 >= totalPages()"
+        >
+          Next
+        </button>
+      </div>
+    </article>
+  </div>
+</section>
