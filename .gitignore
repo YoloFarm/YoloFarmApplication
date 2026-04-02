@@ -1,0 +1,33 @@
+# IDE - IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Build directories
+target/
+build/
+
+# Maven
+*.classpath
+*.project
+.settings/
+
+# Java
+*.class
+*.jar
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local environment files
+.env
+.env.local
+*.log
+
+# Node (nếu có)
+node_modules/
+npm-debug.log
