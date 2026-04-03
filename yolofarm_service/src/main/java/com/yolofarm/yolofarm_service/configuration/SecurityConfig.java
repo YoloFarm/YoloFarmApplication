@@ -1,6 +1,7 @@
 package com.yolofarm.yolofarm_service.configuration;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,6 +22,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final CustomJwtDecoder customJwtDecoder;
+
+    @Value("${cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}")
+    private String[] allowedOrigins;
 
     private final String[] PUBLIC_POST_ENDPOINTS = {
             "/api/users",
@@ -68,12 +72,12 @@ public class SecurityConfig {
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
-        corsConfiguration.addAllowedOrigin("http://localhost:5173");
-        corsConfiguration.addAllowedOrigin("http://127.0.0.1:5173");
-        corsConfiguration.addAllowedOrigin("http://localhost:3000");
-        corsConfiguration.addAllowedOrigin("http://127.0.0.1:3000");
-        corsConfiguration.addAllowedOrigin("http://20.2.85.225.nip.io");
-        corsConfiguration.addAllowedOrigin("http://20.2.85.225");
+        
+        // Add allowed origins from config (dev + prod)
+        for (String origin : allowedOrigins) {
+            corsConfiguration.addAllowedOrigin(origin.trim());
+        }
+        
         corsConfiguration.addAllowedMethod("*");
         corsConfiguration.addAllowedHeader("*");
         corsConfiguration.setAllowCredentials(true);
