@@ -1,8 +1,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
-import { APP_ENV } from '../config/app-env';
 import { ApiResponse } from '../models/api.models';
+import { environment } from '../../../environments/environment';
 
 type ApiParamValue = string | number | boolean | null | undefined;
 
@@ -39,7 +39,7 @@ export class ApiClientService {
   }
 
   private buildUrl(path: string): string {
-    return `${APP_ENV.apiBaseUrl}${path}`;
+    return `${environment.apiBaseUrl}${path}`;
   }
 
   private toHttpParams(params?: Record<string, ApiParamValue>): HttpParams {

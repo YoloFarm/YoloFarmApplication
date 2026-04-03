@@ -112,7 +112,14 @@
     </div>
 
     @if (selectedChartType() === 'radar') {
-      <p class="subtitle">Radar compares average metrics in current range using normalized scale (0-100).</p>
+      <div class="radar-info">
+        <p class="subtitle">
+          <strong>Radar Chart:</strong> Compares average metrics using normalized scale (0-100%).
+          Each metric is scaled by its reference maximum:
+          Temperature (÷50°C), Humidity (÷100%), Soil Moisture (÷100%), Light (÷1000 lux).
+          Example: Temperature 30°C → (30 ÷ 50) × 100 = <strong>60%</strong>
+        </p>
+      </div>
     }
 
     @if (lastRealtimeSync()) {

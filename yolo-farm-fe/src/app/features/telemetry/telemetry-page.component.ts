@@ -369,24 +369,6 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
 
     try {
       let chartRecords = await this.fetchHistoryForRange(deviceId);
-
-      // MOCK DATA: If no valuable data from API, inject fake data for chart testing
-      if (!this.hasValuedData(chartRecords)) {
-        const now = new Date();
-        chartRecords = Array.from({ length: 24 }, (_, i) => {
-          const d = new Date(now.getTime() - (23 - i) * 60 * 60 * 1000);
-          return {
-            id: i + 1,
-            deviceId,
-            createdAt: d.toISOString(),
-            temperature: 25 + Math.sin(i / 3) * 3 + Math.random(),
-            humidity: 60 + Math.cos(i / 4) * 10 + Math.random() * 2,
-            soilMoisture: 40 + Math.sin(i / 2) * 8 + Math.random() * 2,
-            light: 200 + Math.abs(Math.sin(i / 6)) * 100 + Math.random() * 10
-          };
-        });
-      }
-
       this.chartPoints.set(chartRecords);
       this.rebuildChart();
     } catch (error: unknown) {
