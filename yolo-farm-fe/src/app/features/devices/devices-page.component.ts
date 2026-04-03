@@ -2,7 +2,12 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
-import { Device, DeviceRequest } from '../../core/models/device.models';
+import {
+  Device,
+  DeviceComponent,
+  DeviceComponentRequest,
+  DeviceRequest
+} from '../../core/models/device.models';
 import { DeviceService } from '../../core/services/device.service';
 import { extractApiErrorMessage } from '../../core/utils/http-error.util';
 
@@ -25,12 +30,23 @@ export class DevicesPageComponent implements OnInit {
   protected readonly totalPages = signal(0);
   protected readonly totalElements = signal(0);
   protected readonly editingId = signal<number | null>(null);
+  protected readonly selectedDevice = signal<Device | null>(null);
+  protected readonly components = signal<DeviceComponent[]>([]);
+  protected readonly componentsLoading = signal(false);
+  protected readonly componentSaving = signal(false);
+  protected readonly componentsErrorMessage = signal<string | null>(null);
+  protected readonly componentsInfoMessage = signal<string | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly infoMessage = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
     deviceId: ['', Validators.required],
     name: ['', Validators.required]
+  });
+
+  protected readonly componentForm = this.fb.nonNullable.group({
+    name: ['', Validators.required],
+    codeName: ['', Validators.required]
   });
 
   ngOnInit(): void {
@@ -50,6 +66,19 @@ export class DevicesPageComponent implements OnInit {
           this.page.set(response.number);
           this.totalPages.set(response.totalPages);
           this.totalElements.set(response.totalElements);
+
+          const selectedDevice = this.selectedDevice();
+          if (!selectedDevice) {
+            return;
+          }
+
+          const refreshedSelection = response.content.find((device) => device.id === selectedDevice.id);
+          if (!refreshedSelection) {
+            this.clearComponentSelection();
+            return;
+          }
+
+          this.selectedDevice.set(refreshedSelection);
         },
         error: (error: unknown) => {
           this.errorMessage.set(extractApiErrorMessage(error, 'Unable to fetch devices.'));
@@ -94,11 +123,63 @@ export class DevicesPageComponent implements OnInit {
     });
   }
 
+  protected selectDevice(device: Device): void {
+    this.selectedDevice.set(device);
+    this.componentsInfoMessage.set(null);
+    this.loadComponents(device.deviceId);
+  }
+
+  protected reloadSelectedDeviceComponents(): void {
+    const selectedDevice = this.selectedDevice();
+    if (!selectedDevice) {
+      return;
+    }
+
+    this.loadComponents(selectedDevice.deviceId);
+  }
+
+  protected submitComponentForm(): void {
+    const selectedDevice = this.selectedDevice();
+    if (!selectedDevice) {
+      this.componentsErrorMessage.set('Please select a device before creating a component.');
+      return;
+    }
+
+    if (this.componentForm.invalid) {
+      this.componentForm.markAllAsTouched();
+      return;
+    }
+
+    this.componentSaving.set(true);
+    this.componentsErrorMessage.set(null);
+    this.componentsInfoMessage.set(null);
+
+    const payload: DeviceComponentRequest = this.componentForm.getRawValue();
+
+    this.deviceService
+      .createComponent(selectedDevice.deviceId, payload)
+      .pipe(finalize(() => this.componentSaving.set(false)))
+      .subscribe({
+        next: () => {
+          this.componentsInfoMessage.set('Component created successfully.');
+          this.resetComponentForm();
+          this.loadComponents(selectedDevice.deviceId);
+        },
+        error: (error: unknown) => {
+          this.componentsErrorMessage.set(
+            extractApiErrorMessage(error, 'Unable to create device component.')
+          );
+        }
+      });
+  }
+
   protected deleteDevice(device: Device): void {
     const confirmed = window.confirm(`Delete device ${device.name} (${device.deviceId})?`);
     if (!confirmed) {
       return;
     }
+
+    const deletingSelectedDevice = this.selectedDevice()?.id === device.id;
 
     this.errorMessage.set(null);
     this.infoMessage.set(null);
@@ -106,6 +187,11 @@ export class DevicesPageComponent implements OnInit {
     this.deviceService.deleteDevice(device.id).subscribe({
       next: () => {
         this.infoMessage.set('Device deleted successfully.');
+
+        if (deletingSelectedDevice) {
+          this.clearComponentSelection();
+        }
+
         this.loadDevices(this.page());
       },
       error: (error: unknown) => {
@@ -117,6 +203,38 @@ export class DevicesPageComponent implements OnInit {
   protected cancelEdit(): void {
     this.editingId.set(null);
     this.form.reset({ deviceId: '', name: '' });
+  }
+
+  protected resetComponentForm(): void {
+    this.componentForm.reset({ name: '', codeName: '' });
+  }
+
+  private loadComponents(deviceId: string): void {
+    this.componentsLoading.set(true);
+    this.componentsErrorMessage.set(null);
+
+    this.deviceService
+      .getComponentsByDeviceId(deviceId)
+      .pipe(finalize(() => this.componentsLoading.set(false)))
+      .subscribe({
+        next: (components) => {
+          this.components.set(components);
+        },
+        error: (error: unknown) => {
+          this.components.set([]);
+          this.componentsErrorMessage.set(
+            extractApiErrorMessage(error, 'Unable to fetch device components.')
+          );
+        }
+      });
+  }
+
+  private clearComponentSelection(): void {
+    this.selectedDevice.set(null);
+    this.components.set([]);
+    this.componentsErrorMessage.set(null);
+    this.componentsInfoMessage.set(null);
+    this.resetComponentForm();
   }
 
   protected nextPage(): void {

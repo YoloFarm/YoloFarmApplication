@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { ChartConfiguration } from 'chart.js';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ChartConfiguration, ChartData, ChartDataset } from 'chart.js';
 import { catchError, firstValueFrom, of } from 'rxjs';
 import { Device } from '../../core/models/device.models';
 import {
@@ -12,6 +12,8 @@ import { DeviceService } from '../../core/services/device.service';
 import { TelemetryService } from '../../core/services/telemetry.service';
 import { extractApiErrorMessage } from '../../core/utils/http-error.util';
 import { ChartsModule } from '../../shared/charts/charts.module';
+
+type TelemetryChartType = 'line' | 'bar' | 'radar';
 
 @Component({
   selector: 'app-telemetry-page',
@@ -29,6 +31,13 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
   private readonly chartMaxPoints = 220;
   private readonly realtimeIntervalMs = 10_000;
   private realtimeTimer: ReturnType<typeof setInterval> | null = null;
+
+  private readonly radarNormalizationMax: Record<TelemetryMetric, number> = {
+    temperature: 50,
+    humidity: 100,
+    soilMoisture: 100,
+    light: 1000
+  };
 
   private readonly metricPalette: Record<
     TelemetryMetric,
@@ -50,6 +59,7 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
   protected readonly devices = signal<Device[]>([]);
   protected readonly selectedDeviceId = signal<string>('');
   protected readonly selectedMetric = signal<TelemetryMetric>('temperature');
+  protected readonly selectedChartType = signal<TelemetryChartType>('line');
   protected readonly selectedRange = signal<TelemetryRangePreset>('24h');
   protected readonly customStart = signal('');
   protected readonly customEnd = signal('');
@@ -83,12 +93,18 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
     { key: 'custom', label: 'Custom range' }
   ];
 
-  protected readonly chartData = signal<ChartConfiguration<'line'>['data']>({
+  protected readonly chartTypeOptions: Array<{ key: TelemetryChartType; label: string }> = [
+    { key: 'line', label: 'Line' },
+    { key: 'bar', label: 'Bar' },
+    { key: 'radar', label: 'Radar' }
+  ];
+
+  protected readonly chartData = signal<ChartData<TelemetryChartType>>({
     labels: [],
     datasets: []
   });
 
-  protected readonly chartOptions: ChartConfiguration<'line'>['options'] = {
+  protected readonly cartesianChartOptions: ChartConfiguration<'line' | 'bar'>['options'] = {
     responsive: true,
     maintainAspectRatio: false,
     animation: {
@@ -125,6 +141,47 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
       }
     }
   };
+
+  protected readonly radarChartOptions: ChartConfiguration<'radar'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: {
+      duration: 300
+    },
+    scales: {
+      r: {
+        suggestedMin: 0,
+        suggestedMax: 100,
+        ticks: {
+          stepSize: 20,
+          color: '#5a6a59'
+        },
+        angleLines: {
+          color: 'rgba(120, 138, 118, 0.25)'
+        },
+        grid: {
+          color: 'rgba(120, 138, 118, 0.2)'
+        },
+        pointLabels: {
+          color: '#5a6a59'
+        }
+      }
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top'
+      }
+    }
+  };
+
+  protected readonly chartOptions = computed<ChartConfiguration<TelemetryChartType>['options']>(() => {
+    if (this.selectedChartType() === 'radar') {
+      return this.radarChartOptions as ChartConfiguration<TelemetryChartType>['options'];
+    }
+
+    return this.cartesianChartOptions as ChartConfiguration<TelemetryChartType>['options'];
+  });
 
   ngOnInit(): void {
     this.applyPresetWindow('24h');
@@ -218,6 +275,11 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
     this.rebuildChart();
   }
 
+  protected onChartTypeChange(chartType: string): void {
+    this.selectedChartType.set(chartType as TelemetryChartType);
+    this.rebuildChart();
+  }
+
   protected onRangeChange(rangeKey: string): void {
     const range = rangeKey as TelemetryRangePreset;
     this.selectedRange.set(range);
@@ -306,7 +368,25 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
     this.errorMessage.set(null);
 
     try {
-      const chartRecords = await this.fetchHistoryForRange(deviceId);
+      let chartRecords = await this.fetchHistoryForRange(deviceId);
+
+      // MOCK DATA: If no valuable data from API, inject fake data for chart testing
+      if (!this.hasValuedData(chartRecords)) {
+        const now = new Date();
+        chartRecords = Array.from({ length: 24 }, (_, i) => {
+          const d = new Date(now.getTime() - (23 - i) * 60 * 60 * 1000);
+          return {
+            id: i + 1,
+            deviceId,
+            createdAt: d.toISOString(),
+            temperature: 25 + Math.sin(i / 3) * 3 + Math.random(),
+            humidity: 60 + Math.cos(i / 4) * 10 + Math.random() * 2,
+            soilMoisture: 40 + Math.sin(i / 2) * 8 + Math.random() * 2,
+            light: 200 + Math.abs(Math.sin(i / 6)) * 100 + Math.random() * 10
+          };
+        });
+      }
+
       this.chartPoints.set(chartRecords);
       this.rebuildChart();
     } catch (error: unknown) {
@@ -316,30 +396,53 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  private hasValuedData(records: TelemetryData[]): boolean {
+    if (!records.length) {
+      return false;
+    }
+
+    // Check nếu có ít nhất 1 record với ít nhất 1 metric không null
+    return records.some(
+      (record) =>
+        record.temperature !== null ||
+        record.humidity !== null ||
+        record.soilMoisture !== null ||
+        record.light !== null
+    );
+  }
+
   private async fetchHistoryForRange(deviceId: string): Promise<TelemetryData[]> {
     const { start, end } = this.resolveRangeWindow();
-    const sensorType = this.sensorTypeMap[this.selectedMetric()];
     const records: TelemetryData[] = [];
 
-    let currentPage = 0;
-    while (currentPage < this.chartMaxPages) {
-      const response = await firstValueFrom(
-        this.telemetryService.getTelemetryHistory(deviceId, currentPage, this.chartPageSize, sensorType)
-      );
-
-      if (!response.content.length) {
-        break;
-      }
-
+    // Nếu radar chart, lấy tất cả 4 metric cùng lúc (gọi API 4 lần merge)
+    // Nếu line/bar, chỉ lấy 1 metric được chọn
+    if (this.selectedChartType() === 'radar') {
+      const response = await firstValueFrom(this.telemetryService.getTelemetryHistoryMerged(deviceId, 0, this.chartPageSize * 2));
       records.push(...response.content);
+    } else {
+      const sensorType = this.sensorTypeMap[this.selectedMetric()];
+      let currentPage = 0;
 
-      const oldestRecord = response.content[response.content.length - 1];
-      const oldestTime = this.toTimestamp(oldestRecord.createdAt);
+      while (currentPage < this.chartMaxPages) {
+        const response = await firstValueFrom(
+          this.telemetryService.getTelemetryHistory(deviceId, currentPage, this.chartPageSize, sensorType)
+        );
 
-      currentPage += 1;
+        if (!response.content.length) {
+          break;
+        }
 
-      if (response.last || oldestTime < start.getTime()) {
-        break;
+        records.push(...response.content);
+
+        const oldestRecord = response.content[response.content.length - 1];
+        const oldestTime = this.toTimestamp(oldestRecord.createdAt);
+
+        currentPage += 1;
+
+        if (response.last || oldestTime < start.getTime()) {
+          break;
+        }
       }
     }
 
@@ -366,27 +469,110 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
   }
 
   private rebuildChart(): void {
+    if (this.selectedChartType() === 'radar') {
+      this.rebuildRadarChart();
+      return;
+    }
+
     const metric = this.selectedMetric();
     const palette = this.metricPalette[metric];
 
     const labels = this.chartPoints().map((point) => this.toChartLabel(point.createdAt));
-    const values = this.chartPoints().map((point) => this.metricValue(point, metric));
+    const values = this.chartPoints().map((point) => this.metricValue(point, metric) ?? 0);
+
+    if (this.selectedChartType() === 'bar') {
+      const dataset: ChartDataset<'bar', number[]> = {
+        label: `${palette.label} (${palette.unit})`,
+        data: values,
+        borderColor: palette.color,
+        borderWidth: 1,
+        backgroundColor: this.withAlpha(palette.color, 0.45)
+      };
+
+      this.chartData.set({
+        labels,
+        datasets: [dataset]
+      });
+      return;
+    }
+
+    const dataset: ChartDataset<'line', number[]> = {
+      label: `${palette.label} (${palette.unit})`,
+      data: values,
+      fill: false,
+      borderColor: palette.color,
+      borderWidth: 2,
+      pointRadius: 2,
+      pointHoverRadius: 4,
+      tension: 0.28
+    };
 
     this.chartData.set({
       labels,
-      datasets: [
-        {
-          label: `${palette.label} (${palette.unit})`,
-          data: values,
-          fill: false,
-          borderColor: palette.color,
-          borderWidth: 2,
-          pointRadius: 2,
-          pointHoverRadius: 4,
-          tension: 0.28
-        }
-      ]
+      datasets: [dataset]
     });
+  }
+
+  private rebuildRadarChart(): void {
+    const labels = this.metricOptions.map((metric) => metric.label);
+    const values = this.metricOptions.map((metric) => {
+      const average = this.averageMetric(this.chartPoints(), metric.key);
+      if (average === null) {
+        return 0;
+      }
+
+      return this.toRadarPercent(metric.key, average);
+    });
+
+    const dataset: ChartDataset<'radar', number[]> = {
+      label: 'Average metric level (%)',
+      data: values,
+      borderColor: '#255f29',
+      backgroundColor: 'rgba(46, 125, 50, 0.18)',
+      pointBackgroundColor: '#255f29',
+      pointBorderColor: '#ffffff',
+      pointHoverBackgroundColor: '#ffffff',
+      pointHoverBorderColor: '#255f29',
+      borderWidth: 2
+    };
+
+    this.chartData.set({
+      labels,
+      datasets: [dataset]
+    });
+  }
+
+  private averageMetric(points: TelemetryData[], metric: TelemetryMetric): number | null {
+    const validValues = points
+      .map((point) => this.metricValue(point, metric))
+      .filter((value): value is number => value !== null);
+
+    if (!validValues.length) {
+      return null;
+    }
+
+    const sum = validValues.reduce((accumulator, value) => accumulator + value, 0);
+    return sum / validValues.length;
+  }
+
+  private toRadarPercent(metric: TelemetryMetric, value: number): number {
+    const maxValue = this.radarNormalizationMax[metric];
+    const percentage = (value / maxValue) * 100;
+
+    return Math.max(0, Math.min(100, Number(percentage.toFixed(1))));
+  }
+
+  private withAlpha(hexColor: string, alpha: number): string {
+    const normalized = hexColor.replace('#', '');
+    if (normalized.length !== 6) {
+      return `rgba(46, 125, 50, ${alpha})`;
+    }
+
+    const red = Number.parseInt(normalized.slice(0, 2), 16);
+    const green = Number.parseInt(normalized.slice(2, 4), 16);
+    const blue = Number.parseInt(normalized.slice(4, 6), 16);
+
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
   }
 
   private startRealtimePolling(): void {

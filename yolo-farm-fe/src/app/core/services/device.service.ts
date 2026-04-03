@@ -1,6 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Device, DeviceRequest } from '../models/device.models';
+import {
+  Device,
+  DeviceComponent,
+  DeviceComponentRequest,
+  DeviceRequest
+} from '../models/device.models';
 import { PageResponse } from '../models/api.models';
 import { ApiClientService } from './api-client.service';
 
@@ -16,6 +21,17 @@ export class DeviceService {
 
   getDeviceById(id: number): Observable<Device> {
     return this.api.get<Device>(`/api/devices/${id}`);
+  }
+
+  getComponentsByDeviceId(deviceId: string): Observable<DeviceComponent[]> {
+    return this.api.get<DeviceComponent[]>(`/api/devices/${encodeURIComponent(deviceId)}/components`);
+  }
+
+  createComponent(deviceId: string, payload: DeviceComponentRequest): Observable<DeviceComponent> {
+    return this.api.post<DeviceComponent, DeviceComponentRequest>(
+      `/api/devices/${encodeURIComponent(deviceId)}/components`,
+      payload
+    );
   }
 
   createDevice(payload: DeviceRequest): Observable<Device> {
