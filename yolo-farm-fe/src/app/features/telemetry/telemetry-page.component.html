@@ -29,9 +29,22 @@
 
       <label>
         Metric
-        <select [value]="selectedMetric()" (change)="onMetricChange($any($event.target).value)">
+        <select
+          [value]="selectedMetric()"
+          (change)="onMetricChange($any($event.target).value)"
+          [disabled]="selectedChartType() === 'radar'"
+        >
           @for (metric of metricOptions; track metric.key) {
             <option [value]="metric.key">{{ metric.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Chart Type
+        <select [value]="selectedChartType()" (change)="onChartTypeChange($any($event.target).value)">
+          @for (chartType of chartTypeOptions; track chartType.key) {
+            <option [value]="chartType.key">{{ chartType.label }}</option>
           }
         </select>
       </label>
@@ -89,9 +102,18 @@
       @if (!chartPoints().length && !chartLoading()) {
         <p class="subtitle">No telemetry points in the selected range.</p>
       } @else {
-        <canvas baseChart [data]="chartData()" [options]="chartOptions" [type]="'line'"></canvas>
+        <canvas
+          baseChart
+          [data]="chartData()"
+          [options]="chartOptions()"
+          [type]="selectedChartType()"
+        ></canvas>
       }
     </div>
+
+    @if (selectedChartType() === 'radar') {
+      <p class="subtitle">Radar compares average metrics in current range using normalized scale (0-100).</p>
+    }
 
     @if (lastRealtimeSync()) {
       <p class="subtitle">Last realtime sync: {{ lastRealtimeSync() | date: 'shortTime' }}</p>

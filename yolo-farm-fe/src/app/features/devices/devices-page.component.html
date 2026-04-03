@@ -43,7 +43,10 @@
 
     <article class="card table-card">
       <div class="table-head">
-        <h3>Device List</h3>
+        <div>
+          <h3>Device List</h3>
+          <p class="subtitle">Click a device row to load all components attached to that device.</p>
+        </div>
         <button type="button" class="btn btn-secondary" (click)="loadDevices()" [disabled]="loading()">
           {{ loading() ? 'Loading...' : 'Reload' }}
         </button>
@@ -62,7 +65,11 @@
           </thead>
           <tbody>
             @for (device of devices(); track device.id) {
-              <tr>
+              <tr
+                class="device-row"
+                [class.selected]="selectedDevice()?.id === device.id"
+                (click)="selectDevice(device)"
+              >
                 <td>{{ device.id }}</td>
                 <td>{{ device.deviceId }}</td>
                 <td>{{ device.name }}</td>
@@ -70,8 +77,19 @@
                   <span class="chip" [class.online]="device.status === 'ONLINE'">{{ device.status }}</span>
                 </td>
                 <td class="actions">
-                  <button type="button" class="btn-link" (click)="editDevice(device)">Edit</button>
-                  <button type="button" class="btn-link danger" (click)="deleteDevice(device)">Delete</button>
+                  <button type="button" class="btn-link" (click)="selectDevice(device); $event.stopPropagation()">
+                    Components
+                  </button>
+                  <button type="button" class="btn-link" (click)="editDevice(device); $event.stopPropagation()">
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-link danger"
+                    (click)="deleteDevice(device); $event.stopPropagation()"
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             }
@@ -97,4 +115,94 @@
       </div>
     </article>
   </div>
+
+  <article class="card table-card">
+    <div class="table-head">
+      <div class="components-title">
+        <h3>Device Components</h3>
+        @if (selectedDevice()) {
+          <p class="subtitle">{{ selectedDevice()?.name }} ({{ selectedDevice()?.deviceId }})</p>
+        } @else {
+          <p class="subtitle">Select a device to view components.</p>
+        }
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="reloadSelectedDeviceComponents()"
+        [disabled]="!selectedDevice() || componentsLoading()"
+      >
+        {{ componentsLoading() ? 'Loading...' : 'Reload Components' }}
+      </button>
+    </div>
+
+    @if (componentsErrorMessage()) {
+      <p class="alert danger">{{ componentsErrorMessage() }}</p>
+    }
+
+    @if (componentsInfoMessage()) {
+      <p class="alert success">{{ componentsInfoMessage() }}</p>
+    }
+
+    @if (selectedDevice()) {
+      <form [formGroup]="componentForm" (ngSubmit)="submitComponentForm()" class="component-form">
+        <div class="component-form-grid">
+          <label>
+            Component Name
+            <input type="text" formControlName="name" placeholder="Water Pump A" />
+          </label>
+
+          <label>
+            Code Name
+            <input type="text" formControlName="codeName" placeholder="PUMP_1" />
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn" [disabled]="componentSaving()">
+            {{ componentSaving() ? 'Saving...' : 'Add Component' }}
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="resetComponentForm()" [disabled]="componentSaving()">
+            Clear
+          </button>
+        </div>
+      </form>
+    }
+
+    @if (selectedDevice() && componentsLoading()) {
+      <p class="subtitle">Loading components...</p>
+    }
+
+    @if (selectedDevice() && !componentsLoading() && !components().length && !componentsErrorMessage()) {
+      <p class="subtitle">No components found for this device.</p>
+    }
+
+    @if (selectedDevice() && components().length) {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Code Name</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (component of components(); track component.id) {
+              <tr>
+                <td>{{ component.id }}</td>
+                <td>{{ component.name }}</td>
+                <td>{{ component.codeName }}</td>
+                <td>
+                  <span class="chip" [class.online]="component.status === 'ON'">{{ component.status }}</span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </article>
 </section>
