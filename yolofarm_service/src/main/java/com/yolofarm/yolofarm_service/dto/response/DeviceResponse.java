@@ -14,4 +14,5 @@ public class DeviceResponse {
     String deviceId;
     String name;
     DeviceStatus status;
+    String ownerEmail;
 }

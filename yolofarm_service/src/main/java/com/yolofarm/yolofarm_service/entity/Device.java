@@ -26,6 +26,9 @@ public class Device extends BaseAuditingEntity {
     private DeviceStatus status;
 
     @Column(nullable = false)
-    @Builder.Default // Nếu bác dùng @Builder của Lombok
+    @Builder.Default
     private boolean active = true;
+
+    @Column(name = "owner_email")
+    private String ownerEmail;
 }

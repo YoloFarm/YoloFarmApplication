@@ -1,9 +1,11 @@
 package com.yolofarm.yolofarm_service.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import lombok.Builder;
 import lombok.Data;
 
 @Data
+@Builder
 public class ControlRequest {
     @NotBlank(message = "Mã thiết bị không được để trống")
     private String deviceId; // Lệnh này gửi cho mạch nào (VD: YOLO-001)

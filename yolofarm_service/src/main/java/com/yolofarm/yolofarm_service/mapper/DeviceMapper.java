@@ -24,6 +24,7 @@ public class DeviceMapper {
                 .deviceId(device.getDeviceId())
                 .name(device.getName())
                 .status(device.getStatus())
+                .ownerEmail(device.getOwnerEmail())
                 .build();
     }
 

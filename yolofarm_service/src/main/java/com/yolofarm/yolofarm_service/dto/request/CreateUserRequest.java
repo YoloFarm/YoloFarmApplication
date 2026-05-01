@@ -10,7 +10,7 @@ import lombok.experimental.FieldDefaults;
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateUserRequest {
-    String username;
+    String email;
     String password;
     String firstName;
     String lastName;

@@ -12,7 +12,7 @@ import java.util.HashSet;
 public class UserMapper {
     public User toUser(CreateUserRequest request) {
         return User.builder()
-                .username(request.getUsername())
+                .email(request.getEmail())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .role((request.getRole()))
@@ -22,7 +22,7 @@ public class UserMapper {
     public UserResponse toUserResponse(User user) {
         return UserResponse.builder()
                 .id(user.getId())
-                .username(user.getUsername())
+                .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .password(user.getPasswordHash())

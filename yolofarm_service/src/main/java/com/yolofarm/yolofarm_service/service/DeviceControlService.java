@@ -15,6 +15,7 @@ import com.yolofarm.yolofarm_service.repository.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +39,24 @@ public class DeviceControlService {
         Device device = deviceRepository.findByDeviceIdAndActiveTrue(request.getDeviceId())
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
 
+        // ==========================================
+        // DATA-LEVEL RBAC: KIỂM TRA QUYỀN ĐIỀU KHIỂN
+        // ==========================================
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        // CHỈ KIỂM TRA QUYỀN NẾU CÓ NGƯỜI DÙNG THẬT GỌI API (Bỏ qua nếu là hệ thống chạy ngầm)
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
+            String currentEmail = authentication.getName();
+            boolean isAdmin = authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+            if (!isAdmin && !currentEmail.equals(device.getOwnerEmail())) {
+                log.warn(">>> XÂM NHẬP TRÁI PHÉP: User [{}] cố điều khiển thiết bị [{}]", currentEmail, device.getDeviceId());
+                throw new AppException(ErrorCode.UNAUTHORIZED);
+            }
+        }
+        // ==========================================
+
         DeviceComponent component = componentRepository.findByDevice_DeviceIdAndCodeNameAndActiveTrue(request.getDeviceId(), request.getCommand())
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_COMPONENT_NOT_FOUND));
 
@@ -51,13 +70,9 @@ public class DeviceControlService {
         DeviceAction actionLogSaved = actionRepository.save(actionLog);
 
         try {
-            // BUILD TOPIC ĐỘNG: Ví dụ "canhoangha/feeds/yolo001-pump1"
             String feedName = request.getDeviceId().toLowerCase().replace("-", "") + "-" + request.getCommand().toLowerCase();
             String dynamicTopic = adafruitUsername + "/feeds/" + feedName;
-            String payloadToSend = request.getAction(); // VD: "ON"
-
-            // Nếu JSON thì mở dòng này ra:
-            // String payloadToSend = objectMapper.writeValueAsString(request);
+            String payloadToSend = request.getAction();
 
             mqttGateway.sendToMqtt(dynamicTopic, payloadToSend);
             log.info(">>> ĐÃ GỬI LỆNH ĐIỀU KHIỂN XUỐNG FEED [{}]: {}", dynamicTopic, payloadToSend);

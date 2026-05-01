@@ -20,13 +20,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
-import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -64,8 +62,9 @@ public class AuthenticationService {
 
     public AuthenticationResponse login(LoginRequest request) {
 
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new AppException(ErrorCode.USERNAME_NOT_EXISTED));
+        // ĐỔI SANG DÙNG EMAIL
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new AppException(ErrorCode.USERNAME_NOT_EXISTED)); // Bác có thể tự đổi tên ErrorCode này sau
 
         if (!user.isActive()) {
             throw new AppException(ErrorCode.USER_DISABLED);
@@ -80,7 +79,7 @@ public class AuthenticationService {
 
         return AuthenticationResponse.builder()
                 .id(user.getId())
-                .username(user.getUsername())
+                .email(user.getEmail()) // ĐỔI SANG EMAIL
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .role(user.getRole())
@@ -121,8 +120,9 @@ public class AuthenticationService {
             redisService.setValue(jti, request.getToken(), ttl, TimeUnit.SECONDS);
         }
 
-        String username = signedToken.getJWTClaimsSet().getSubject();
-        User user = userRepository.findByUsername(username)
+        // SUBJECT BÂY GIỜ LÀ EMAIL
+        String email = signedToken.getJWTClaimsSet().getSubject();
+        User user = userRepository.findByEmail(email) // ĐỔI SANG DÙNG EMAIL
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHENTICATED));
 
         if (!user.isActive()) {
@@ -132,7 +132,7 @@ public class AuthenticationService {
         String newToken = generateToken(user);
         return AuthenticationResponse.builder()
                 .id(user.getId())
-                .username(user.getUsername())
+                .email(user.getEmail()) // ĐỔI SANG EMAIL
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .role(user.getRole())
@@ -167,7 +167,7 @@ public class AuthenticationService {
     public String generateToken(User user)  {
         JWSHeader jwsHeader = new JWSHeader(JWSAlgorithm.HS512);
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                .subject(user.getUsername())
+                .subject(user.getEmail()) // ĐỔI SUBJECT THÀNH EMAIL
                 .issueTime(new Date())
                 .expirationTime(new Date(
                         Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()

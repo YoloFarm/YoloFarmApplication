@@ -3,24 +3,20 @@ package com.yolofarm.yolofarm_service.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yolofarm.yolofarm_service.dto.response.TelemetryResponse;
-import com.yolofarm.yolofarm_service.entity.Device;
-import com.yolofarm.yolofarm_service.entity.DeviceAction;
-import com.yolofarm.yolofarm_service.entity.DeviceComponent;
-import com.yolofarm.yolofarm_service.entity.SensorTelemetry;
+import com.yolofarm.yolofarm_service.entity.*;
 import com.yolofarm.yolofarm_service.exception.AppException;
 import com.yolofarm.yolofarm_service.exception.ErrorCode;
-import com.yolofarm.yolofarm_service.repository.DeviceActionRepository;
-import com.yolofarm.yolofarm_service.repository.DeviceComponentRepository;
-import com.yolofarm.yolofarm_service.repository.DeviceRepository;
-import com.yolofarm.yolofarm_service.repository.SensorTelemetryRepository;
+import com.yolofarm.yolofarm_service.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -29,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class TelemetryService {
 
+    private final EmailService emailService;
+    private final AlertRuleRepository alertRuleRepository;
     private final SensorTelemetryRepository repository;
     private final DeviceRepository deviceRepository;
     private final DeviceComponentRepository componentRepository;
@@ -68,9 +66,23 @@ public class TelemetryService {
                 Double value = Double.parseDouble(payload);
                 handleTelemetry(deviceId, metric, value);
             } else {
-                // Nếu không thuộc nhóm cảm biến, mặc định nó là Linh kiện (Ví dụ: PUMP1, FAN)
-                // Lúc này mới được phép quy đổi 0/1 thành ON/OFF
-                String action = (payload.equals("1") || payload.equalsIgnoreCase("ON")) ? "ON" : "OFF";
+                // LINH KIỆN ĐIỀU KHIỂN (Quạt, Bơm, Đèn...)
+                String action;
+                String cleanPayload = payload.trim().toUpperCase();
+
+                if (cleanPayload.equals("1") || cleanPayload.equals("ON")) {
+                    action = "ON";
+                } else if (cleanPayload.equals("0") || cleanPayload.equals("OFF")) {
+                    action = "OFF";
+                } else {
+                    // ===============================================
+                    // HỖ TRỢ ANALOG/PWM Ở ĐÂY:
+                    // Nếu payload gửi xuống là "50", "75" (không phải ON/OFF/0/1)
+                    // thì giữ nguyên con số đó để lưu vào Database
+                    // ===============================================
+                    action = cleanPayload;
+                }
+
                 handleStateUpdate(deviceId, metric, action);
             }
 
@@ -119,12 +131,71 @@ public class TelemetryService {
 
         String cacheKey = REDIS_KEY_PREFIX + deviceId + ":" + sensorType;
         redisService.deleteValue(cacheKey);
+
+        evaluateAlertRules(device, sensorType, value);
+    }
+
+    private void evaluateAlertRules(Device device, String sensorType, Double value) {
+        // Nếu thiết bị chưa có chủ, khỏi gửi mail
+        if (device.getOwnerEmail() == null) return;
+
+        List<AlertRule> rules = alertRuleRepository.findByDeviceIdAndSensorTypeAndActiveTrue(device.getDeviceId(), sensorType);
+
+        for (AlertRule rule : rules) {
+
+            boolean isTriggered = switch (rule.getOperator().toUpperCase()) {
+                case "GREATER_THAN" -> value > rule.getThreshold();
+                case "LESS_THAN" -> value < rule.getThreshold();
+                case "EQUAL" -> value.equals(rule.getThreshold());
+                default -> false;
+            };
+
+            if (isTriggered) {
+                // REDIS ANTI-SPAM: Khóa cảnh báo này trong vòng 30 phút
+                String cooldownKey = "alert:cooldown:" + rule.getId();
+
+                if (redisService.getValue(cooldownKey) == null) {
+
+                    String subject = "[Khẩn Cấp] Cảnh báo từ thiết bị " + device.getDeviceId();
+                    String message = String.format("Cảnh báo: %s\nLoại cảm biến: %s\nGiá trị đo được hiện tại: %s\nNgưỡng cài đặt: %s %s",
+                            rule.getAlertMessage(), sensorType, value, rule.getOperator(), rule.getThreshold());
+
+                    // Bắn Mail cho chủ sở hữu
+                    emailService.sendAlertEmailAsync(device.getOwnerEmail(), subject, message);
+
+                    // Set cờ Cooldown 30 phút
+                    redisService.setValue(cooldownKey, "LOCKED", 30L, TimeUnit.MINUTES);
+                    log.info(">>> Đã kích hoạt luật cảnh báo ID: {}. Cấm làm phiền trong 30 phút tiếp theo.", rule.getId());
+                }
+            }
+        }
+    }
+
+    // =======================================================
+    // HÀM HELPER: KIỂM TRA QUYỀN SỞ HỮU (RBAC)
+    // =======================================================
+    private void checkDeviceOwnership(Device device) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentEmail = authentication.getName();
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        // Nếu KHÔNG phải Admin và cũng KHÔNG phải chủ sở hữu -> Cấm xem data!
+        if (!isAdmin && !currentEmail.equals(device.getOwnerEmail())) {
+            log.warn(">>> XÂM NHẬP TRÁI PHÉP: User [{}] cố xem dữ liệu thiết bị [{}]", currentEmail, device.getDeviceId());
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
     }
 
 
     public TelemetryResponse getLatestTelemetry(String deviceId, String sensorType) {
+        // BƯỚC 1: Lấy Device và KIỂM TRA QUYỀN trước khi đụng vào Cache!
+        Device device = deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
+                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
 
-        // Cache Key giờ phải kẹp thêm sensorType: "telemetry:latest:YOLO-001:TEMP"
+        checkDeviceOwnership(device); // Chặn ngay nếu không có quyền
+
+        // BƯỚC 2: Kiểm tra Cache an toàn
         String cacheKey = REDIS_KEY_PREFIX + deviceId + ":" + sensorType;
         String cachedData = redisService.getValue(cacheKey);
 
@@ -136,10 +207,7 @@ public class TelemetryService {
             }
         }
 
-        deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
-                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
-
-        // Phải viết thêm hàm findTop... trong Repository để hỗ trợ tìm theo sensorType
+        // BƯỚC 3: Nếu Cache rỗng thì mới chui xuống DB
         SensorTelemetry telemetry = repository.findTopByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(deviceId, sensorType)
                 .orElseThrow(() -> new AppException(ErrorCode.NO_TELEMETRY_DATA));
 
@@ -154,19 +222,19 @@ public class TelemetryService {
         return response;
     }
 
-    // 2. Lấy lịch sử của MỘT LOẠI CẢM BIẾN (Để vẽ biểu đồ trên Web)
     public Page<TelemetryResponse> getTelemetryHistory(String deviceId, String sensorType, int page, int size) {
-        deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
+        // KIỂM TRA QUYỀN
+        Device device = deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
+
+        checkDeviceOwnership(device); // Chặn ngay nếu không có quyền
 
         Pageable pageable = PageRequest.of(page, size);
 
-        // Phải viết thêm hàm findBy... trong Repository
         return repository.findByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(deviceId, sensorType, pageable)
                 .map(this::mapToResponse);
     }
 
-    // 3. Hàm Map chuẩn cho Bảng dọc
     private TelemetryResponse mapToResponse(SensorTelemetry entity) {
         return TelemetryResponse.builder()
                 .id(entity.getId())

@@ -11,7 +11,7 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthenticationResponse {
     String id;
-    String username;
+    String email;
     String firstName;
     String lastName;
     Role role;

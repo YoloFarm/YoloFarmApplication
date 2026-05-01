@@ -10,9 +10,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
@@ -22,17 +19,18 @@ public class ApplicationInitConfig {
     @Bean
     ApplicationRunner applicationRunner(UserRepository userRepository) {
         return args -> {
-            if(userRepository.findByUsername("admin").isEmpty()) {
+            // Sửa thành findByEmail và dùng 1 email đại diện cho hệ thống
+            if(userRepository.findByEmail("admin@yolofarm.com").isEmpty()) {
                 User user = User.builder()
-                        .username("admin")
-                        .passwordHash(passwordEncoder.encode("admin"))
+                        .email("admin@yolofarm.com") // Đổi username thành email
+                        .passwordHash(passwordEncoder.encode("admin")) // Pass vẫn để "admin" cho lẹ
                         .active(true)
                         .role(Role.ADMIN)
                         .build();
 
                 userRepository.save(user);
 
-                log.warn("Created ADMIN");
+                log.warn(">>> Created default ADMIN account (Email: admin@yolofarm.com | Pass: admin)");
             }
         };
     }

@@ -4,7 +4,6 @@ import com.yolofarm.yolofarm_service.dto.request.CreateUserRequest;
 import com.yolofarm.yolofarm_service.dto.request.UpdateUserRequest;
 import com.yolofarm.yolofarm_service.dto.response.UserResponse;
 import com.yolofarm.yolofarm_service.entity.User;
-import com.yolofarm.yolofarm_service.enums.Role;
 import com.yolofarm.yolofarm_service.exception.AppException;
 import com.yolofarm.yolofarm_service.exception.ErrorCode;
 import com.yolofarm.yolofarm_service.mapper.UserMapper;
@@ -15,7 +14,6 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,11 +27,10 @@ public class UserService {
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
 
-
     public UserResponse createUser(CreateUserRequest request) {
-
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new AppException(ErrorCode.USERNAME_EXISTED);
+        // SỬA: Đổi request.getUsername() thành request.getEmail()
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
 
         User user = userMapper.toUser(request);
@@ -46,16 +43,19 @@ public class UserService {
 
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponse getUserInfo(String id) {
-        User user =userRepository.findById(id)
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_ID_NOT_EXISTED));
         return userMapper.toUserResponse(user);
     }
 
     public UserResponse getMyInfo(){
         var context = SecurityContextHolder.getContext();
-        String name = context.getAuthentication().getName();
+        // getName() lúc này lấy từ Subject của JWT, chính là Email
+        String email = context.getAuthentication().getName();
 
-        User user = userRepository.findByUsername(name).orElseThrow(() -> new AppException(ErrorCode.USERNAME_NOT_EXISTED));
+        // SỬA: Đổi findByUsername thành findByEmail
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         return userMapper.toUserResponse(user);
     }
@@ -67,16 +67,16 @@ public class UserService {
                 .map(userMapper::toUserResponse);
     }
 
-
     public UserResponse updateUser(String id, UpdateUserRequest request) {
-        User user =userRepository.findById(id)
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_ID_NOT_EXISTED));
 
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
-        if (!isAdmin && !user.getUsername().equals(authentication.getName())) {
+        // SỬA: Đổi user.getUsername() thành user.getEmail()
+        if (!isAdmin && !user.getEmail().equals(authentication.getName())) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
@@ -98,6 +98,4 @@ public class UserService {
         user.setActive(false);
         userRepository.save(user);
     }
-
-
 }
