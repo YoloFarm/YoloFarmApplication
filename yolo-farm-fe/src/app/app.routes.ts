@@ -37,6 +37,20 @@ export const routes: Routes = [
 					import('./features/devices/devices-page.component').then((m) => m.DevicesPageComponent)
 			},
 			{
+				path: 'schedules',
+				loadComponent: () =>
+					import('./features/schedules/schedules-page.component').then(
+						(m) => m.SchedulesPageComponent
+					)
+			},
+			{
+				path: 'alert-rules',
+				loadComponent: () =>
+					import('./features/alert-rules/alert-rules-page.component').then(
+						(m) => m.AlertRulesPageComponent
+					)
+			},
+			{
 				path: 'telemetry',
 				loadComponent: () =>
 					import('./features/telemetry/telemetry-page.component').then(

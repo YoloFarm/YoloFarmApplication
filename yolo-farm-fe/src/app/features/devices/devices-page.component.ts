@@ -9,6 +9,7 @@ import {
   DeviceRequest
 } from '../../core/models/device.models';
 import { DeviceService } from '../../core/services/device.service';
+import { AuthStore } from '../../core/store/auth.store';
 import { extractApiErrorMessage } from '../../core/utils/http-error.util';
 
 @Component({
@@ -21,6 +22,7 @@ import { extractApiErrorMessage } from '../../core/utils/http-error.util';
 export class DevicesPageComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly deviceService = inject(DeviceService);
+  protected readonly authStore = inject(AuthStore);
 
   protected readonly devices = signal<Device[]>([]);
   protected readonly loading = signal(false);
@@ -30,6 +32,7 @@ export class DevicesPageComponent implements OnInit {
   protected readonly totalPages = signal(0);
   protected readonly totalElements = signal(0);
   protected readonly editingId = signal<number | null>(null);
+  protected readonly editingComponentId = signal<number | null>(null);
   protected readonly selectedDevice = signal<Device | null>(null);
   protected readonly components = signal<DeviceComponent[]>([]);
   protected readonly componentsLoading = signal(false);
@@ -38,6 +41,7 @@ export class DevicesPageComponent implements OnInit {
   protected readonly componentsInfoMessage = signal<string | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly infoMessage = signal<string | null>(null);
+  protected readonly isAdmin = signal(false);
 
   protected readonly form = this.fb.nonNullable.group({
     deviceId: ['', Validators.required],
@@ -50,6 +54,7 @@ export class DevicesPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.isAdmin.set(this.authStore.role() === 'ADMIN');
     this.loadDevices(0);
   }
 
@@ -57,8 +62,11 @@ export class DevicesPageComponent implements OnInit {
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    this.deviceService
-      .getDevices(page, this.size())
+    const request$ = this.isAdmin()
+      ? this.deviceService.getDevices(page, this.size())
+      : this.deviceService.getMyDevices(page, this.size());
+
+    request$
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (response) => {
@@ -87,6 +95,10 @@ export class DevicesPageComponent implements OnInit {
   }
 
   protected submitForm(): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -116,6 +128,10 @@ export class DevicesPageComponent implements OnInit {
   }
 
   protected editDevice(device: Device): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     this.editingId.set(device.id);
     this.form.setValue({
       deviceId: device.deviceId,
@@ -139,6 +155,10 @@ export class DevicesPageComponent implements OnInit {
   }
 
   protected submitComponentForm(): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     const selectedDevice = this.selectedDevice();
     if (!selectedDevice) {
       this.componentsErrorMessage.set('Please select a device before creating a component.');
@@ -156,24 +176,81 @@ export class DevicesPageComponent implements OnInit {
 
     const payload: DeviceComponentRequest = this.componentForm.getRawValue();
 
-    this.deviceService
-      .createComponent(selectedDevice.deviceId, payload)
+    const componentId = this.editingComponentId();
+    const request$ = componentId
+      ? this.deviceService.updateComponent(componentId, payload)
+      : this.deviceService.createComponent(selectedDevice.deviceId, payload);
+
+    request$
       .pipe(finalize(() => this.componentSaving.set(false)))
       .subscribe({
         next: () => {
-          this.componentsInfoMessage.set('Component created successfully.');
+          this.componentsInfoMessage.set(
+            componentId ? 'Component updated successfully.' : 'Component created successfully.'
+          );
           this.resetComponentForm();
           this.loadComponents(selectedDevice.deviceId);
         },
         error: (error: unknown) => {
           this.componentsErrorMessage.set(
-            extractApiErrorMessage(error, 'Unable to create device component.')
+            extractApiErrorMessage(error, 'Unable to save device component.')
           );
         }
       });
   }
 
+  protected editComponent(component: DeviceComponent): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
+    this.editingComponentId.set(component.id);
+    this.componentsInfoMessage.set(null);
+    this.componentsErrorMessage.set(null);
+    this.componentForm.setValue({
+      name: component.name,
+      codeName: component.codeName
+    });
+  }
+
+  protected deleteComponent(component: DeviceComponent): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete component ${component.name} (${component.codeName})?`);
+    if (!confirmed) {
+      return;
+    }
+
+    const selectedDevice = this.selectedDevice();
+    this.componentsErrorMessage.set(null);
+    this.componentsInfoMessage.set(null);
+
+    this.deviceService.deleteComponent(component.id).subscribe({
+      next: () => {
+        this.componentsInfoMessage.set('Component deleted successfully.');
+        if (this.editingComponentId() === component.id) {
+          this.resetComponentForm();
+        }
+
+        if (selectedDevice) {
+          this.loadComponents(selectedDevice.deviceId);
+        }
+      },
+      error: (error: unknown) => {
+        this.componentsErrorMessage.set(
+          extractApiErrorMessage(error, 'Unable to delete device component.')
+        );
+      }
+    });
+  }
+
   protected deleteDevice(device: Device): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     const confirmed = window.confirm(`Delete device ${device.name} (${device.deviceId})?`);
     if (!confirmed) {
       return;
@@ -206,6 +283,7 @@ export class DevicesPageComponent implements OnInit {
   }
 
   protected resetComponentForm(): void {
+    this.editingComponentId.set(null);
     this.componentForm.reset({ name: '', codeName: '' });
   }
 

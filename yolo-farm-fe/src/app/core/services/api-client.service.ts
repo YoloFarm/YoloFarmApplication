@@ -16,26 +16,32 @@ export class ApiClientService {
 
   get<T>(path: string, options?: ApiRequestOptions): Observable<T> {
     return this.unwrap<T>(
-      this.http.get<ApiResponse<T>>(this.buildUrl(path), {
+      this.http.get<ApiResponse<T> | T>(this.buildUrl(path), {
         params: this.toHttpParams(options?.params)
       })
     );
   }
 
   post<T, TBody = unknown>(path: string, body: TBody): Observable<T> {
-    return this.unwrap<T>(this.http.post<ApiResponse<T>>(this.buildUrl(path), body));
+    return this.unwrap<T>(this.http.post<ApiResponse<T> | T>(this.buildUrl(path), body));
   }
 
   put<T, TBody = unknown>(path: string, body: TBody): Observable<T> {
-    return this.unwrap<T>(this.http.put<ApiResponse<T>>(this.buildUrl(path), body));
+    return this.unwrap<T>(this.http.put<ApiResponse<T> | T>(this.buildUrl(path), body));
   }
 
   delete<T>(path: string): Observable<T> {
-    return this.unwrap<T>(this.http.delete<ApiResponse<T>>(this.buildUrl(path)));
+    return this.unwrap<T>(this.http.delete<ApiResponse<T> | T>(this.buildUrl(path)));
   }
 
-  private unwrap<T>(request$: Observable<ApiResponse<T>>): Observable<T> {
-    return request$.pipe(map((response) => response.result));
+  private unwrap<T>(request$: Observable<ApiResponse<T> | T>): Observable<T> {
+    return request$.pipe(
+      map((response) => (this.isApiResponse(response) ? response.result : response))
+    );
+  }
+
+  private isApiResponse<T>(response: ApiResponse<T> | T): response is ApiResponse<T> {
+    return typeof response === 'object' && response !== null && 'result' in response;
   }
 
   private buildUrl(path: string): string {

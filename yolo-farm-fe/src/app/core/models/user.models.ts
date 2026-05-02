@@ -2,7 +2,7 @@ import { UserRole } from './auth.models';
 
 export interface UserResponse {
   id: string;
-  username: string;
+  email: string;
   password?: string;
   firstName?: string | null;
   lastName?: string | null;
@@ -11,7 +11,7 @@ export interface UserResponse {
 }
 
 export interface CreateUserRequest {
-  username: string;
+  email: string;
   password: string;
   firstName?: string;
   lastName?: string;

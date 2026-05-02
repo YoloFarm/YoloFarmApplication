@@ -10,6 +10,7 @@ import {
 } from '../../core/models/telemetry.models';
 import { DeviceService } from '../../core/services/device.service';
 import { TelemetryService } from '../../core/services/telemetry.service';
+import { AuthStore } from '../../core/store/auth.store';
 import { extractApiErrorMessage } from '../../core/utils/http-error.util';
 import { ChartsModule } from '../../shared/charts/charts.module';
 
@@ -23,6 +24,7 @@ type TelemetryChartType = 'line' | 'bar' | 'radar';
   styleUrl: './telemetry-page.component.scss'
 })
 export class TelemetryPageComponent implements OnInit, OnDestroy {
+  private readonly authStore = inject(AuthStore);
   private readonly deviceService = inject(DeviceService);
   private readonly telemetryService = inject(TelemetryService);
 
@@ -197,7 +199,11 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
     this.errorMessage.set(null);
 
     try {
-      const response = await firstValueFrom(this.deviceService.getDevices(0, 200));
+      const response = await firstValueFrom(
+        this.authStore.role() === 'ADMIN'
+          ? this.deviceService.getDevices(0, 200)
+          : this.deviceService.getMyDevices(0, 200)
+      );
       this.devices.set(response.content);
 
       if (!response.content.length) {
