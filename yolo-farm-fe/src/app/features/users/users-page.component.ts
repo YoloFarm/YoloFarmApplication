@@ -37,7 +37,7 @@ export class UsersPageComponent implements OnInit {
   protected readonly isEditing = computed(() => Boolean(this.editingUserId()));
 
   protected readonly form = this.fb.nonNullable.group({
-    username: ['', [Validators.required, Validators.minLength(3)]],
+    email: ['', [Validators.required, Validators.email]],
     firstName: [''],
     lastName: [''],
     role: ['USER' as UserRole, Validators.required],
@@ -116,7 +116,7 @@ export class UsersPageComponent implements OnInit {
     }
 
     const payload: CreateUserRequest = {
-      username: rawValue.username.trim(),
+      email: rawValue.email.trim(),
       password,
       firstName: this.normalizeOptionalValue(rawValue.firstName),
       lastName: this.normalizeOptionalValue(rawValue.lastName),
@@ -141,9 +141,9 @@ export class UsersPageComponent implements OnInit {
   protected startEdit(user: UserResponse): void {
     this.editingUserId.set(user.id);
 
-    this.form.controls.username.enable();
-    this.form.controls.username.setValue(user.username);
-    this.form.controls.username.disable();
+    this.form.controls.email.enable();
+    this.form.controls.email.setValue(user.email);
+    this.form.controls.email.disable();
 
     this.form.patchValue({
       firstName: user.firstName ?? '',
@@ -154,12 +154,12 @@ export class UsersPageComponent implements OnInit {
 
     this.form.controls.password.clearValidators();
     this.form.controls.password.updateValueAndValidity();
-    this.infoMessage.set(`Editing ${user.username}`);
+    this.infoMessage.set(`Editing ${user.email}`);
     this.errorMessage.set(null);
   }
 
   protected deleteUser(user: UserResponse): void {
-    const confirmed = window.confirm(`Delete user ${user.username}?`);
+    const confirmed = window.confirm(`Delete user ${user.email}?`);
     if (!confirmed) {
       return;
     }
@@ -201,14 +201,14 @@ export class UsersPageComponent implements OnInit {
   private enterCreateMode(): void {
     this.editingUserId.set(null);
     this.form.reset({
-      username: '',
+      email: '',
       firstName: '',
       lastName: '',
       role: 'USER',
       password: ''
     });
 
-    this.form.controls.username.enable();
+    this.form.controls.email.enable();
     this.form.controls.password.setValidators([Validators.required, Validators.minLength(3)]);
     this.form.controls.password.updateValueAndValidity();
   }

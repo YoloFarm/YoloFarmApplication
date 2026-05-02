@@ -26,7 +26,7 @@ export class LoginPageComponent {
   protected readonly errorMessage = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
-    username: ['admin', [Validators.required]],
+    email: ['admin@yolofarm.com', [Validators.required]],
     password: ['admin', [Validators.required]]
   });
 

@@ -18,6 +18,10 @@
   gap: 1rem;
 }
 
+.content-grid:has(> .table-card:first-child) {
+  grid-template-columns: 1fr;
+}
+
 .device-form {
   display: grid;
   gap: 0.75rem;
@@ -94,6 +98,11 @@ td {
   border-radius: 0.85rem;
   border: 1px dashed color-mix(in srgb, var(--accent) 42%, var(--line));
   background: color-mix(in srgb, var(--accent) 5%, var(--surface-soft));
+}
+
+.component-form h4 {
+  margin: 0;
+  font-size: 0.95rem;
 }
 
 .component-form-grid {

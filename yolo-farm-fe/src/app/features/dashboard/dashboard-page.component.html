@@ -31,6 +31,28 @@
     </article>
   </div>
 
+    <section class="card claim-device">
+        <div>
+        <h3>Claim Device</h3>
+        <p class="subtitle">Attach a provisioned device to your account.</p>
+        </div>
+
+        <form [formGroup]="claimForm" (ngSubmit)="claimDevice()" class="claim-form">
+        <label>
+            Device ID
+            <input type="text" formControlName="deviceId" placeholder="YOLO-001" />
+        </label>
+
+        <button type="submit" class="btn" [disabled]="isClaimingDevice()">
+            {{ isClaimingDevice() ? 'Claiming...' : 'Claim Device' }}
+        </button>
+        </form>
+
+        @if (claimFeedback()) {
+        <p class="feedback">{{ claimFeedback() }}</p>
+        }
+    </section>
+
   <section class="card quick-control">
     <div>
       <h3>Quick Control</h3>
@@ -40,7 +62,7 @@
     <form [formGroup]="controlForm" (ngSubmit)="sendQuickCommand()" class="quick-control-form">
       <label>
         Device
-        <select formControlName="deviceId">
+        <select formControlName="deviceId" (change)="onControlDeviceChange($any($event.target).value)">
           <option value="" disabled>Select device</option>
           @for (device of devices(); track device.id) {
             <option [value]="device.deviceId">{{ device.name }} ({{ device.deviceId }})</option>
@@ -50,9 +72,14 @@
 
       <label>
         Command
-        <select formControlName="command">
-          @for (command of commandOptions; track command) {
-            <option [value]="command">{{ command }}</option>
+        <select formControlName="command" [disabled]="isLoadingComponents() || !hasControlComponents()">
+          <option value="" disabled>
+            {{ isLoadingComponents() ? 'Loading components...' : 'Select component' }}
+          </option>
+          @for (component of controlComponents(); track component.id) {
+            <option [value]="component.codeName">
+              {{ component.name }} ({{ component.codeName }})
+            </option>
           }
         </select>
       </label>
@@ -66,7 +93,7 @@
         </select>
       </label>
 
-      <button type="submit" class="btn" [disabled]="isSendingCommand() || !hasDevices()">
+      <button type="submit" class="btn" [disabled]="isSendingCommand() || !hasDevices() || !hasControlComponents()">
         {{ isSendingCommand() ? 'Sending...' : 'Send Command' }}
       </button>
     </form>

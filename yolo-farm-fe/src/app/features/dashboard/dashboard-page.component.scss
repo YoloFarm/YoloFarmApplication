@@ -44,6 +44,18 @@
   gap: 0.75rem;
 }
 
+.claim-device {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.claim-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
 .quick-control-form {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -113,6 +125,10 @@
   }
 
   .quick-control-form {
+    grid-template-columns: 1fr;
+  }
+
+  .claim-form {
     grid-template-columns: 1fr;
   }
 }

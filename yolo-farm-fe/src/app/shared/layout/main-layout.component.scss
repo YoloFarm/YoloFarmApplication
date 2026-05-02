@@ -7,6 +7,10 @@
 }
 
 .sidebar {
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+  max-height: calc(100vh - 2rem);
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -118,6 +122,8 @@
   }
 
   .sidebar {
+    position: static;
+    max-height: none;
     flex-direction: row;
     align-items: center;
     overflow-x: auto;

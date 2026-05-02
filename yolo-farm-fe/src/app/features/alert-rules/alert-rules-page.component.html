@@ -1,0 +1,153 @@
+<section class="alert-rules-page fade-in">
+  <header class="card page-header">
+    <div>
+      <p class="eyebrow">Monitoring</p>
+      <h2>Alert Rules</h2>
+      <p class="subtitle">Create sensor threshold rules for email alerts.</p>
+    </div>
+
+    <button type="button" class="btn btn-secondary" (click)="loadDevices()" [disabled]="loading()">
+      {{ loading() ? 'Loading...' : 'Reload' }}
+    </button>
+  </header>
+
+  @if (errorMessage()) {
+    <p class="alert danger">{{ errorMessage() }}</p>
+  }
+
+  @if (infoMessage()) {
+    <p class="alert success">{{ infoMessage() }}</p>
+  }
+
+  <div class="content-grid">
+    <article class="card">
+      <h3>Create Rule</h3>
+
+      <form [formGroup]="form" (ngSubmit)="submitForm()" class="rule-form">
+        <label>
+          Device
+          <select
+            formControlName="deviceId"
+            (change)="onDeviceChange($any($event.target).value)"
+            [disabled]="loading() || !devices().length"
+          >
+            <option value="" disabled>Select device</option>
+            @for (device of devices(); track device.id) {
+              <option [value]="device.deviceId">{{ device.name }} ({{ device.deviceId }})</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Sensor
+          <select formControlName="sensorType">
+            @for (sensor of sensorOptions; track sensor.key) {
+              <option [value]="sensor.key">{{ sensor.label }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Operator
+          <select formControlName="operator">
+            @for (operator of operatorOptions; track operator.key) {
+              <option [value]="operator.key">{{ operator.label }} ({{ operator.symbol }})</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Threshold
+          <input type="number" formControlName="threshold" step="0.1" />
+        </label>
+
+        <label>
+          Alert Message
+          <input type="text" formControlName="alertMessage" placeholder="Greenhouse temperature is high" />
+        </label>
+
+        <button type="submit" class="btn" [disabled]="saving() || !devices().length">
+          {{ saving() ? 'Saving...' : 'Create Rule' }}
+        </button>
+      </form>
+    </article>
+
+    <article class="card table-card">
+      <div class="table-head">
+        <div>
+          <h3>Rule List</h3>
+          @if (selectedDevice()) {
+            <p class="subtitle">{{ selectedDevice()?.name }} ({{ selectedDevice()?.deviceId }})</p>
+          } @else {
+            <p class="subtitle">No device selected.</p>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="loadDevices()"
+          [disabled]="loading() || loadingRules()"
+        >
+          {{ loadingRules() ? 'Loading...' : 'Refresh' }}
+        </button>
+      </div>
+
+      @if (!devices().length && !loading()) {
+        <p class="subtitle">No devices available.</p>
+      }
+
+      @if (selectedDeviceId() && !loadingRules() && !rules().length) {
+        <p class="subtitle">No alert rules found for this device.</p>
+      }
+
+      @if (rules().length) {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Sensor</th>
+                <th>Condition</th>
+                <th>Message</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (rule of rules(); track rule.id) {
+                <tr>
+                  <td>{{ rule.id }}</td>
+                  <td>
+                    <span class="metric-pill">{{ sensorLabel(rule.sensorType) }}</span>
+                  </td>
+                  <td>
+                    <strong>
+                      {{ operatorSymbol(rule.operator) }} {{ rule.threshold }} {{ sensorUnit(rule.sensorType) }}
+                    </strong>
+                  </td>
+                  <td>{{ rule.alertMessage || '--' }}</td>
+                  <td>
+                    <span class="chip" [class.online]="rule.active">
+                      {{ rule.active ? 'ACTIVE' : 'INACTIVE' }}
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn-link danger"
+                      (click)="deleteRule(rule)"
+                      [disabled]="deletingId() === rule.id"
+                    >
+                      {{ deletingId() === rule.id ? 'Deleting...' : 'Delete' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </article>
+  </div>
+</section>

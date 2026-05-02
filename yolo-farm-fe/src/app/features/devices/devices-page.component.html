@@ -3,7 +3,9 @@
     <div>
       <p class="eyebrow">Device Management</p>
       <h2>Devices</h2>
-      <p class="subtitle">Create, update and soft-delete devices via /api/devices.</p>
+      <p class="subtitle">
+        {{ isAdmin() ? 'Create, update and soft-delete devices via /api/devices.' : 'View devices claimed by your account.' }}
+      </p>
     </div>
   </header>
 
@@ -16,30 +18,32 @@
   }
 
   <div class="content-grid">
-    <article class="card">
-      <h3>{{ editingId() ? 'Edit Device' : 'Create Device' }}</h3>
-      <form [formGroup]="form" (ngSubmit)="submitForm()" class="device-form">
-        <label>
-          Device ID
-          <input type="text" formControlName="deviceId" placeholder="YOLO-001" />
-        </label>
+    @if (isAdmin()) {
+      <article class="card">
+        <h3>{{ editingId() ? 'Edit Device' : 'Create Device' }}</h3>
+        <form [formGroup]="form" (ngSubmit)="submitForm()" class="device-form">
+          <label>
+            Device ID
+            <input type="text" formControlName="deviceId" placeholder="YOLO-001" />
+          </label>
 
-        <label>
-          Name
-          <input type="text" formControlName="name" placeholder="Greenhouse Sensor" />
-        </label>
+          <label>
+            Name
+            <input type="text" formControlName="name" placeholder="Greenhouse Sensor" />
+          </label>
 
-        <div class="form-actions">
-          <button type="submit" class="btn" [disabled]="saving()">
-            {{ saving() ? 'Saving...' : editingId() ? 'Update Device' : 'Create Device' }}
-          </button>
+          <div class="form-actions">
+            <button type="submit" class="btn" [disabled]="saving()">
+              {{ saving() ? 'Saving...' : editingId() ? 'Update Device' : 'Create Device' }}
+            </button>
 
-          @if (editingId()) {
-            <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Cancel</button>
-          }
-        </div>
-      </form>
-    </article>
+            @if (editingId()) {
+              <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Cancel</button>
+            }
+          </div>
+        </form>
+      </article>
+    }
 
     <article class="card table-card">
       <div class="table-head">
@@ -80,16 +84,18 @@
                   <button type="button" class="btn-link" (click)="selectDevice(device); $event.stopPropagation()">
                     Components
                   </button>
-                  <button type="button" class="btn-link" (click)="editDevice(device); $event.stopPropagation()">
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-link danger"
-                    (click)="deleteDevice(device); $event.stopPropagation()"
-                  >
-                    Delete
-                  </button>
+                  @if (isAdmin()) {
+                    <button type="button" class="btn-link" (click)="editDevice(device); $event.stopPropagation()">
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-link danger"
+                      (click)="deleteDevice(device); $event.stopPropagation()"
+                    >
+                      Delete
+                    </button>
+                  }
                 </td>
               </tr>
             }
@@ -145,8 +151,10 @@
       <p class="alert success">{{ componentsInfoMessage() }}</p>
     }
 
-    @if (selectedDevice()) {
+    @if (selectedDevice() && isAdmin()) {
       <form [formGroup]="componentForm" (ngSubmit)="submitComponentForm()" class="component-form">
+        <h4>{{ editingComponentId() ? 'Edit Component' : 'Add Component' }}</h4>
+
         <div class="component-form-grid">
           <label>
             Component Name
@@ -161,10 +169,15 @@
 
         <div class="form-actions">
           <button type="submit" class="btn" [disabled]="componentSaving()">
-            {{ componentSaving() ? 'Saving...' : 'Add Component' }}
+            {{ componentSaving() ? 'Saving...' : editingComponentId() ? 'Update Component' : 'Add Component' }}
           </button>
-          <button type="button" class="btn btn-secondary" (click)="resetComponentForm()" [disabled]="componentSaving()">
-            Clear
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="resetComponentForm()"
+            [disabled]="componentSaving()"
+          >
+            {{ editingComponentId() ? 'Cancel' : 'Clear' }}
           </button>
         </div>
       </form>
@@ -187,6 +200,9 @@
               <th>Name</th>
               <th>Code Name</th>
               <th>Status</th>
+              @if (isAdmin()) {
+                <th>Actions</th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -198,6 +214,14 @@
                 <td>
                   <span class="chip" [class.online]="component.status === 'ON'">{{ component.status }}</span>
                 </td>
+                @if (isAdmin()) {
+                  <td class="actions">
+                    <button type="button" class="btn-link" (click)="editComponent(component)">Edit</button>
+                    <button type="button" class="btn-link danger" (click)="deleteComponent(component)">
+                      Delete
+                    </button>
+                  </td>
+                }
               </tr>
             }
           </tbody>

@@ -1,0 +1,270 @@
+<section class="schedules-page fade-in">
+  <header class="card page-header">
+    <div>
+      <p class="eyebrow">Automation</p>
+      <h2>Schedules</h2>
+      <p class="subtitle">Create recurring commands for owned devices.</p>
+    </div>
+
+    <button type="button" class="btn btn-secondary" (click)="loadDevices()" [disabled]="loading()">
+      {{ loading() ? 'Loading...' : 'Reload' }}
+    </button>
+  </header>
+
+  @if (errorMessage()) {
+    <p class="alert danger">{{ errorMessage() }}</p>
+  }
+
+  @if (infoMessage()) {
+    <p class="alert success">{{ infoMessage() }}</p>
+  }
+
+  <div class="content-grid">
+    <article class="card">
+      <h3>{{ editingId() ? 'Edit Schedule' : 'Create Schedule' }}</h3>
+
+      <form [formGroup]="form" (ngSubmit)="submitForm()" class="schedule-form">
+        <label>
+          Device
+          <select
+            formControlName="deviceId"
+            (change)="onDeviceChange($any($event.target).value)"
+            [disabled]="loading() || !devices().length"
+          >
+            <option value="" disabled>Select device</option>
+            @for (device of devices(); track device.id) {
+              <option [value]="device.deviceId">{{ device.name }} ({{ device.deviceId }})</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Component
+          <select formControlName="command" [disabled]="loadingDetails() || !components().length">
+            <option value="" disabled>Select component</option>
+            @for (component of components(); track component.id) {
+              <option [value]="component.codeName">
+                {{ component.name }} ({{ component.codeName }})
+              </option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Action
+          <select [value]="actionMode()" (change)="onActionModeChange($any($event.target).value)">
+            <option value="preset">ON / OFF</option>
+            <option value="custom">Custom value</option>
+          </select>
+        </label>
+
+        @if (actionMode() === 'preset') {
+          <label>
+            State
+            <select formControlName="action">
+              @for (action of actionOptions; track action) {
+                <option [value]="action">{{ action }}</option>
+              }
+            </select>
+          </label>
+        } @else {
+          <label>
+            Value
+            <input type="number" formControlName="customAction" min="0" max="100" step="1" placeholder="50" />
+          </label>
+        }
+
+        <div class="schedule-builder">
+          <label>
+            Repeat
+            <select [value]="scheduleMode()" (change)="onScheduleModeChange($any($event.target).value)">
+              @for (mode of scheduleModeOptions; track mode.key) {
+                <option [value]="mode.key">{{ mode.label }}</option>
+              }
+            </select>
+          </label>
+
+          @if (scheduleMode() === 'daily' || scheduleMode() === 'weekly' || scheduleMode() === 'monthly') {
+            <label>
+              Time
+              <input type="time" [value]="scheduleTime()" (change)="onScheduleTimeChange($any($event.target).value)" />
+            </label>
+          }
+
+          @if (scheduleMode() === 'weekly') {
+            <label>
+              Day
+              <select [value]="scheduleWeekday()" (change)="onWeekdayChange($any($event.target).value)">
+                @for (weekday of weekdayOptions; track weekday.key) {
+                  <option [value]="weekday.key">{{ weekday.label }}</option>
+                }
+              </select>
+            </label>
+          }
+
+          @if (scheduleMode() === 'monthly') {
+            <label>
+              Day of month
+              <input
+                type="number"
+                min="1"
+                max="31"
+                [value]="scheduleMonthDay()"
+                (change)="onMonthDayChange($any($event.target).value)"
+              />
+            </label>
+          }
+
+          @if (scheduleMode() === 'interval-minutes') {
+            <label>
+              Minutes
+              <input
+                type="number"
+                min="1"
+                max="59"
+                [value]="intervalMinutes()"
+                (change)="onIntervalMinutesChange($any($event.target).value)"
+              />
+            </label>
+          }
+
+          @if (scheduleMode() === 'interval-hours') {
+            <label>
+              Hours
+              <input
+                type="number"
+                min="1"
+                max="23"
+                [value]="intervalHours()"
+                (change)="onIntervalHoursChange($any($event.target).value)"
+              />
+            </label>
+          }
+
+          @if (scheduleMode() === 'advanced') {
+            <label class="advanced-cron">
+              Cron Expression
+              <input
+                type="text"
+                formControlName="cronExpression"
+                placeholder="0 0 6 * * *"
+                (input)="onAdvancedCronChange($any($event.target).value)"
+              />
+            </label>
+          }
+        </div>
+
+        <div class="schedule-preview">
+          <p>Runs: <strong>{{ schedulePreview() }}</strong></p>
+          @if (scheduleMode() === 'advanced') {
+            <p class="table-note">Use Spring cron format with 6 fields.</p>
+          } @else {
+            <p class="table-note">{{ form.controls.cronExpression.value }}</p>
+          }
+        </div>
+
+        <label>
+          Description
+          <input type="text" formControlName="description" placeholder="Morning irrigation" />
+        </label>
+
+        <div class="form-actions">
+          <button type="submit" class="btn" [disabled]="saving() || !devices().length || !components().length">
+            {{ saving() ? 'Saving...' : editingId() ? 'Update Schedule' : 'Create Schedule' }}
+          </button>
+
+          @if (editingId()) {
+            <button type="button" class="btn btn-secondary" (click)="cancelEdit()" [disabled]="saving()">
+              Cancel
+            </button>
+          }
+        </div>
+      </form>
+    </article>
+
+    <article class="card table-card">
+      <div class="table-head">
+        <div>
+          <h3>Schedule List</h3>
+          @if (selectedDevice()) {
+            <p class="subtitle">{{ selectedDevice()?.name }} ({{ selectedDevice()?.deviceId }})</p>
+          } @else {
+            <p class="subtitle">No device selected.</p>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="loadDevices()"
+          [disabled]="loading() || loadingDetails()"
+        >
+          {{ loadingDetails() ? 'Loading...' : 'Refresh' }}
+        </button>
+      </div>
+
+      @if (!devices().length && !loading()) {
+        <p class="subtitle">No devices available.</p>
+      }
+
+      @if (selectedDeviceId() && !loadingDetails() && !components().length) {
+        <p class="alert danger">This device has no components to schedule.</p>
+      }
+
+      @if (selectedDeviceId() && !loadingDetails() && !schedules().length) {
+        <p class="subtitle">No schedules found for this device.</p>
+      }
+
+      @if (schedules().length) {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Component</th>
+                <th>Action</th>
+                <th>Schedule</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (schedule of schedules(); track schedule.id) {
+                <tr>
+                  <td>{{ schedule.id }}</td>
+                  <td>
+                    <strong>{{ schedule.command }}</strong>
+                    @if (schedule.description) {
+                      <p class="table-note">{{ schedule.description }}</p>
+                    }
+                  </td>
+                  <td>{{ schedule.action }}</td>
+                  <td>
+                    <strong>{{ describeCron(schedule.cronExpression) }}</strong>
+                    <p class="table-note">{{ schedule.cronExpression }}</p>
+                  </td>
+                  <td>
+                    <span class="chip" [class.online]="schedule.active">
+                      {{ schedule.active ? 'ACTIVE' : 'INACTIVE' }}
+                    </span>
+                  </td>
+                  <td class="actions">
+                    <button type="button" class="btn-link" (click)="editSchedule(schedule)">Edit</button>
+                    <button
+                      type="button"
+                      class="btn-link danger"
+                      (click)="deleteSchedule(schedule)"
+                      [disabled]="deletingId() === schedule.id"
+                    >
+                      {{ deletingId() === schedule.id ? 'Deleting...' : 'Delete' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </article>
+  </div>
+</section>

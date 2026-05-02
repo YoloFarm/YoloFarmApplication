@@ -26,6 +26,8 @@ export class MainLayoutComponent {
   private readonly navItems: NavItem[] = [
     { label: 'Dashboard', path: '/dashboard' },
     { label: 'Devices', path: '/devices' },
+    { label: 'Schedules', path: '/schedules' },
+    { label: 'Alert Rules', path: '/alert-rules' },
     { label: 'Telemetry', path: '/telemetry' },
     { label: 'Profile', path: '/profile' },
     { label: 'Users', path: '/users', adminOnly: true }
@@ -42,7 +44,7 @@ export class MainLayoutComponent {
     }
 
     const fullName = `${session.firstName ?? ''} ${session.lastName ?? ''}`.trim();
-    return fullName || session.username;
+    return fullName || session.email;
   });
 
   protected logout(): void {

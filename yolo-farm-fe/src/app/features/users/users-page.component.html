@@ -21,8 +21,8 @@
 
       <form [formGroup]="form" (ngSubmit)="submitForm()" class="user-form">
         <label>
-          Username
-          <input type="text" formControlName="username" placeholder="john.doe" />
+          Email
+          <input type="text" formControlName="email" placeholder="john.doe" />
         </label>
 
         <label>
@@ -73,7 +73,7 @@
         <table>
           <thead>
             <tr>
-              <th>Username</th>
+              <th>Email</th>
               <th>Full Name</th>
               <th>Role</th>
               <th>Status</th>
@@ -83,7 +83,7 @@
           <tbody>
             @for (user of users(); track user.id) {
               <tr>
-                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
                 <td>{{ user.firstName ?? '-' }} {{ user.lastName ?? '' }}</td>
                 <td>
                   <span class="chip" [class.online]="user.role === 'ADMIN'">{{ user.role }}</span>

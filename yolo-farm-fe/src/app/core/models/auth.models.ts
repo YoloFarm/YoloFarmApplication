@@ -1,7 +1,7 @@
 export type UserRole = 'ADMIN' | 'USER';
 
 export interface LoginRequest {
-  username: string;
+  email: string;
   password: string;
 }
 
@@ -11,7 +11,7 @@ export interface TokenRequest {
 
 export interface AuthenticationResponse {
   id: string;
-  username: string;
+  email: string;
   firstName?: string | null;
   lastName?: string | null;
   role: UserRole;
