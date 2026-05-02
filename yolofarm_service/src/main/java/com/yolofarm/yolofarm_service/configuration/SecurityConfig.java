@@ -77,12 +77,7 @@ public class SecurityConfig {
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors  = new CorsConfiguration();
 
-        cors.setAllowedOriginPatterns(List.of(
-                "http://localhost:*",
-                "http://127.0.0.1:*",
-                "http://192.168.*:*",
-                "http://*:*" // 👉 debug (sau này bỏ nếu muốn secure)
-        ));
+        cors.setAllowedOriginPatterns(List.of("*"));
 
         cors.setAllowedMethods(List.of("*"));
         cors.setAllowedHeaders(List.of("*"));
