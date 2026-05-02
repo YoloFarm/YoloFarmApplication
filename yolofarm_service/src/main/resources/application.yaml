@@ -16,17 +16,8 @@ spring:
       ddl-auto: update
     show-sql: true
 
-  mail:
-    host: smtp.gmail.com
-    port: 465
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
+  brevo:
+    api-key: ${BREVO_API_KEY}
 
   data:
     redis:
