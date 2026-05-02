@@ -85,7 +85,7 @@ public class DeviceControlService {
                     .build();
         } catch (Exception e) {
             log.error(">>> LỖI GỬI LỆNH MQTT: {}", e.getMessage());
-            throw new RuntimeException("Không thể gửi lệnh đến Adafruit IO");
+            throw new AppException(ErrorCode.MQTT_SEND_FAILURE);
         }
     }
 }

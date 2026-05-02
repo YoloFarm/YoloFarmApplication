@@ -50,7 +50,6 @@ public class ScheduleTaskExecutor {
                     deviceControlService.sendControlCommand(controlRequest);
                 }
             } catch (Exception e) {
-                // Bắt lỗi từng schedule riêng biệt, không để 1 thằng lỗi làm chết cả lứa
                 log.error(">>> LỖI THỰC THI SCHEDULE ID {}: {}", schedule.getId(), e.getMessage());
             }
         }

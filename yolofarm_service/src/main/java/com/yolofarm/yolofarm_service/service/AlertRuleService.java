@@ -66,7 +66,7 @@ public class AlertRuleService {
 
     public void deleteRule(Long id) {
         AlertRule rule = ruleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy luật"));
+                .orElseThrow(() -> new AppException(ErrorCode.ALERT_RULE_NOT_FOUND));
 
         Device device = deviceRepository.findByDeviceIdAndActiveTrue(rule.getDeviceId()).get();
         checkDeviceOwnership(device);

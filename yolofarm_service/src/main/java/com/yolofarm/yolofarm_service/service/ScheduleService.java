@@ -50,7 +50,7 @@ public class ScheduleService {
 
         // 3. Check Cú pháp thời gian Cron
         if (!CronExpression.isValidExpression(cronExpression)) {
-            throw new RuntimeException("Cú pháp Cron Expression không hợp lệ: " + cronExpression);
+            throw new AppException(ErrorCode.INVALID_CRON_EXPRESSION);
         }
     }
 
@@ -94,7 +94,7 @@ public class ScheduleService {
 
     public ScheduleResponse updateSchedule(Long id, ScheduleRequest request) {
         DeviceSchedule schedule = scheduleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch trình"));
+                .orElseThrow(() -> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
 
         // Validate lại từ đầu với cục data mới
         validateScheduleLogic(request.getDeviceId(), request.getCommand(), request.getCronExpression());
@@ -110,7 +110,7 @@ public class ScheduleService {
 
     public void deleteSchedule(Long id) {
         DeviceSchedule schedule = scheduleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch trình"));
+                .orElseThrow(() -> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
 
         // Chỉ cần check quyền xem có được phép xóa không
         Device device = deviceRepository.findByDeviceIdAndActiveTrue(schedule.getDeviceId()).get();

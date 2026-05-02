@@ -24,7 +24,11 @@ public enum ErrorCode {
     CODE_NAME_ALREADY_EXISTS_ON_DEVICE( "Code name already exists on device", HttpStatus.BAD_REQUEST),
     USER_NOT_EXISTED( "User not existed", HttpStatus.NOT_FOUND),
     EMAIL_EXISTED( "Email existed", HttpStatus.BAD_REQUEST),
-    DEVICE_ALREADY_CLAIMED( "Device already claimed", HttpStatus.BAD_REQUEST)
+    DEVICE_ALREADY_CLAIMED( "Device already claimed", HttpStatus.BAD_REQUEST),
+    ALERT_RULE_NOT_FOUND( "Alert rule not found", HttpStatus.NOT_FOUND),
+    MQTT_SEND_FAILURE( "Failed to send MQTT message", HttpStatus.INTERNAL_SERVER_ERROR),
+    SCHEDULE_NOT_FOUND( "Schedule not found", HttpStatus.NOT_FOUND),
+    INVALID_CRON_EXPRESSION( "Invalid cron expression", HttpStatus.BAD_REQUEST)
     ;
 
     ErrorCode( String message, HttpStatus statusCode) {
