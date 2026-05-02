@@ -29,7 +29,6 @@ public class DeviceController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Page<DeviceResponse>> getAllDevices(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
