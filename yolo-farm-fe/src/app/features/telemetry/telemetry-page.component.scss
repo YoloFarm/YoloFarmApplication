@@ -33,7 +33,7 @@
 
 .chart-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
@@ -64,14 +64,25 @@
   justify-content: center;
   background: color-mix(in srgb, var(--metric-color) 18%, var(--surface-elevated));
   color: var(--metric-color);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
   border: 1px solid color-mix(in srgb, var(--metric-color) 35%, var(--line));
 }
 
 .metric-glyph {
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.metric-glyph svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .inline-toggle {
@@ -138,6 +149,11 @@
 
 .latest-grid strong {
   font-size: 1.1rem;
+}
+
+.latest-date {
+  display: block;
+  margin-top: 0.25rem;
 }
 
 .table-wrap {

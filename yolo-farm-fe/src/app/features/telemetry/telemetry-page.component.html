@@ -15,6 +15,64 @@
     <p class="alert danger">{{ errorMessage() }}</p>
   }
 
+  <section class="card latest-card">
+    <h3>Latest Telemetry</h3>
+
+    @if (latestTelemetry()) {
+      <div class="latest-grid">
+        @for (metric of metrics; track metric) {
+          <div class="latest-item">
+            <span class="metric-icon" [style.--metric-color]="getMetricConfig(metric).color">
+              <span class="metric-glyph" aria-hidden="true">
+                @switch (metric) {
+                  @case ('temperature') {
+                    <svg viewBox="0 0 24 24">
+                      <path d="M14 14.76V5a2 2 0 1 0-4 0v9.76a4 4 0 1 0 4 0Z"></path>
+                      <line x1="12" y1="9" x2="12" y2="13"></line>
+                    </svg>
+                  }
+                  @case ('humidity') {
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 2.5s-6 6.5-6 10a6 6 0 0 0 12 0c0-3.5-6-10-6-10Z"></path>
+                    </svg>
+                  }
+                  @case ('soilMoisture') {
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 20V10"></path>
+                      <path d="M12 10c0-4 3-6 7-6 0 4-3 6-7 6Z"></path>
+                      <path d="M12 10c0-3-2.5-5-6-5 0 3.5 2 5 6 5Z"></path>
+                    </svg>
+                  }
+                  @default {
+                    <svg viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="4"></circle>
+                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                    </svg>
+                  }
+                }
+              </span>
+            </span>
+            <div>
+              <p>{{ getMetricConfig(metric).label }}</p>
+              <strong>
+                {{ getLatestMetric(metric)?.value ?? '--' }} {{ getMetricConfig(metric).unit }}
+              </strong>
+              <span class="subtitle latest-date">
+                {{
+                  getLatestMetric(metric)?.createdAt
+                    ? (getLatestMetric(metric)?.createdAt | date: 'short')
+                    : 'No data'
+                }}
+              </span>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <p class="subtitle">No latest telemetry available.</p>
+    }
+  </section>
+  
   <section class="card chart-card">
     <div class="chart-controls">
       <label>
@@ -82,7 +140,34 @@
           <header class="metric-header">
             <div class="metric-title">
               <span class="metric-icon" [style.--metric-color]="getMetricConfig(metric).color">
-                <span class="metric-glyph">{{ getMetricConfig(metric).icon }}</span>
+                <span class="metric-glyph" aria-hidden="true">
+                  @switch (metric) {
+                    @case ('temperature') {
+                      <svg viewBox="0 0 24 24">
+                        <path d="M14 14.76V5a2 2 0 1 0-4 0v9.76a4 4 0 1 0 4 0Z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                      </svg>
+                    }
+                    @case ('humidity') {
+                      <svg viewBox="0 0 24 24">
+                        <path d="M12 2.5s-6 6.5-6 10a6 6 0 0 0 12 0c0-3.5-6-10-6-10Z"></path>
+                      </svg>
+                    }
+                    @case ('soilMoisture') {
+                      <svg viewBox="0 0 24 24">
+                        <path d="M12 20V10"></path>
+                        <path d="M12 10c0-4 3-6 7-6 0 4-3 6-7 6Z"></path>
+                        <path d="M12 10c0-3-2.5-5-6-5 0 3.5 2 5 6 5Z"></path>
+                      </svg>
+                    }
+                    @default {
+                      <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                      </svg>
+                    }
+                  }
+                </span>
               </span>
               <div>
                 <p>{{ getMetricConfig(metric).label }}</p>
@@ -121,34 +206,5 @@
     }
   </section>
 
-  <section class="card latest-card">
-    <h3>Latest Telemetry</h3>
-
-    @if (latestTelemetry()) {
-      <div class="latest-grid">
-        @for (metric of metrics; track metric) {
-          <div class="latest-item">
-            <span class="metric-icon" [style.--metric-color]="getMetricConfig(metric).color">
-              <span class="metric-glyph">{{ getMetricConfig(metric).icon }}</span>
-            </span>
-            <div>
-              <p>{{ getMetricConfig(metric).label }}</p>
-              <strong>
-                {{ getLatestMetric(metric)?.value ?? '--' }} {{ getMetricConfig(metric).unit }}
-              </strong>
-              <span class="subtitle">
-                {{
-                  getLatestMetric(metric)?.createdAt
-                    ? (getLatestMetric(metric)?.createdAt | date: 'short')
-                    : 'No data'
-                }}
-              </span>
-            </div>
-          </div>
-        }
-      </div>
-    } @else {
-      <p class="subtitle">No latest telemetry available.</p>
-    }
-  </section>
+  
 </section>
