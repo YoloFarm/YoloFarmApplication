@@ -1,13 +1,15 @@
-export type TelemetryMetric = 'temperature' | 'humidity' | 'soilMoisture' | 'light';
-
-export type TelemetryRangePreset = '1h' | '6h' | '24h' | 'custom';
+export type TelemetrySensorType = 'TEMP' | 'HUMIDITY' | 'SOIL_MOISTURE' | 'LIGHT';
 
 export interface TelemetryData {
   id: number;
   deviceId: string;
-  temperature: number | null;
-  humidity: number | null;
-  soilMoisture: number | null;
-  light: number | null;
+  sensorType: TelemetrySensorType;
+  value: number | null;
   createdAt: string;
 }
+
+export type LatestTelemetry = Partial<Record<TelemetrySensorType, TelemetryData>>;
+
+export type TelemetryMetric = 'temperature' | 'humidity' | 'soilMoisture' | 'light';
+
+export type TelemetryRangePreset = '1h' | '6h' | '24h' | 'custom';

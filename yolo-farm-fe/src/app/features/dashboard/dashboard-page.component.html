@@ -119,23 +119,25 @@
           <div class="telemetry-grid">
             <div>
               <p>Temperature</p>
-              <strong>{{ snapshot.telemetry.temperature ?? '--' }} C</strong>
+              <strong>{{ snapshot.telemetry['TEMP']?.value ?? '--' }} C</strong>
             </div>
             <div>
               <p>Humidity</p>
-              <strong>{{ snapshot.telemetry.humidity ?? '--' }} %</strong>
+              <strong>{{ snapshot.telemetry['HUMIDITY']?.value ?? '--' }} %</strong>
             </div>
             <div>
               <p>Soil</p>
-              <strong>{{ snapshot.telemetry.soilMoisture ?? '--' }} %</strong>
+              <strong>{{ snapshot.telemetry['SOIL_MOISTURE']?.value ?? '--' }} %</strong>
             </div>
             <div>
               <p>Light</p>
-              <strong>{{ snapshot.telemetry.light ?? '--' }}</strong>
+              <strong>{{ snapshot.telemetry['LIGHT']?.value ?? '--' }}</strong>
             </div>
           </div>
 
-          <p class="timestamp">Updated {{ snapshot.telemetry.createdAt | date: 'short' }}</p>
+          <p class="timestamp">
+            Updated {{ snapshotTimestamp(snapshot.telemetry) | date: 'short' }}
+          </p>
         } @else {
           <p class="subtitle">No telemetry data yet.</p>
         }

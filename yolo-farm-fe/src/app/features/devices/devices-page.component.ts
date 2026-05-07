@@ -8,6 +8,7 @@ import {
   DeviceComponentRequest,
   DeviceRequest
 } from '../../core/models/device.models';
+import { ControlService } from '../../core/services/control.service';
 import { DeviceService } from '../../core/services/device.service';
 import { AuthStore } from '../../core/store/auth.store';
 import { extractApiErrorMessage } from '../../core/utils/http-error.util';
@@ -22,6 +23,7 @@ import { extractApiErrorMessage } from '../../core/utils/http-error.util';
 export class DevicesPageComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly deviceService = inject(DeviceService);
+  private readonly controlService = inject(ControlService);
   protected readonly authStore = inject(AuthStore);
 
   protected readonly devices = signal<Device[]>([]);
@@ -287,6 +289,91 @@ export class DevicesPageComponent implements OnInit {
     this.componentForm.reset({ name: '', codeName: '' });
   }
 
+  protected componentType(component: DeviceComponent): 'FAN' | 'PUMP' | 'LED' | 'UNKNOWN' {
+    const token = `${component.codeName} ${component.name}`.toUpperCase();
+
+    if (token.includes('FAN')) {
+      return 'FAN';
+    }
+
+    if (token.includes('PUMP')) {
+      return 'PUMP';
+    }
+
+    if (token.includes('LED')) {
+      return 'LED';
+    }
+
+    return 'UNKNOWN';
+  }
+
+  protected formatComponentStatus(component: DeviceComponent): string {
+    const type = this.componentType(component);
+
+    if (type === 'FAN' || type === 'PUMP') {
+      return `${this.getPowerValue(component)}%`;
+    }
+
+    return component.status || '--';
+  }
+
+  protected isComponentActive(component: DeviceComponent): boolean {
+    const type = this.componentType(component);
+
+    if (type === 'LED') {
+      return this.isLedOn(component);
+    }
+
+    if (type === 'FAN' || type === 'PUMP') {
+      return this.getPowerValue(component) > 0;
+    }
+
+    return component.status === 'ON';
+  }
+
+  protected isLedOn(component: DeviceComponent): boolean {
+    return (component.status || '').toUpperCase() === 'ON';
+  }
+
+  protected getPowerValue(component: DeviceComponent): number {
+    return this.parsePowerValue(component.status);
+  }
+
+  protected onPowerChange(component: DeviceComponent, event: Event): void {
+    const rawValue = (event.target as HTMLInputElement).value;
+    const nextValue = this.parsePowerValue(rawValue);
+
+    this.updateComponentStatus(component.id, String(nextValue));
+    this.sendComponentCommand(component, String(nextValue));
+  }
+
+  protected onPowerInput(component: DeviceComponent, event: Event): void {
+    const rawValue = (event.target as HTMLInputElement).value;
+    const nextValue = this.parsePowerValue(rawValue);
+
+    this.updateComponentStatus(component.id, String(nextValue));
+  }
+
+  protected onLedToggle(component: DeviceComponent, event: Event): void {
+    const nextStatus = (event.target as HTMLInputElement).checked ? 'ON' : 'OFF';
+    const previousStatus = component.status;
+
+    this.updateComponentStatus(component.id, nextStatus);
+    this.sendComponentCommand(component, nextStatus, previousStatus);
+  }
+
+  protected fanSpinDuration(component: DeviceComponent): string {
+    const power = this.getPowerValue(component);
+    const duration = 3 - power * 0.02;
+    return `${Math.max(0.8, duration).toFixed(2)}s`;
+  }
+
+  protected pumpPulseDuration(component: DeviceComponent): string {
+    const power = this.getPowerValue(component);
+    const duration = 2.4 - power * 0.015;
+    return `${Math.max(0.6, duration).toFixed(2)}s`;
+  }
+
   private loadComponents(deviceId: string): void {
     this.componentsLoading.set(true);
     this.componentsErrorMessage.set(null);
@@ -313,6 +400,58 @@ export class DevicesPageComponent implements OnInit {
     this.componentsErrorMessage.set(null);
     this.componentsInfoMessage.set(null);
     this.resetComponentForm();
+  }
+
+  private sendComponentCommand(
+    component: DeviceComponent,
+    action: string,
+    previousStatus?: string
+  ): void {
+    const deviceId = component.deviceId || this.selectedDevice()?.deviceId;
+
+    if (!deviceId) {
+      this.componentsErrorMessage.set('Missing device identifier for the selected component.');
+      if (previousStatus !== undefined) {
+        this.updateComponentStatus(component.id, previousStatus);
+      }
+      return;
+    }
+
+    this.componentsErrorMessage.set(null);
+
+    this.controlService
+      .sendCommand({ deviceId, command: component.codeName, action })
+      .subscribe({
+        error: (error: unknown) => {
+          this.componentsErrorMessage.set(
+            extractApiErrorMessage(error, 'Unable to update device component.')
+          );
+          if (previousStatus !== undefined) {
+            this.updateComponentStatus(component.id, previousStatus);
+          }
+        }
+      });
+  }
+
+  private updateComponentStatus(componentId: number, status: string): void {
+    this.components.update((items) =>
+      items.map((component) =>
+        component.id === componentId ? { ...component, status } : component
+      )
+    );
+  }
+
+  private parsePowerValue(raw: string | number | null | undefined): number {
+    if (raw === null || raw === undefined) {
+      return 0;
+    }
+
+    const value = typeof raw === 'number' ? raw : Number.parseInt(raw, 10);
+    if (Number.isNaN(value)) {
+      return 0;
+    }
+
+    return Math.min(100, Math.max(0, value));
   }
 
   protected nextPage(): void {
