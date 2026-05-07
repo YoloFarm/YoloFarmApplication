@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { ChartConfiguration, ChartData, ChartDataset } from 'chart.js';
+import { ChartConfiguration, ChartData, ChartDataset, TooltipItem } from 'chart.js';
 import { catchError, firstValueFrom, of } from 'rxjs';
 import { Device } from '../../core/models/device.models';
 import {
@@ -124,6 +124,59 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
       }
     }
   };
+
+  protected getChartOptions(metric: TelemetryMetric): ChartConfiguration<'line'>['options'] {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 300
+      },
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      scales: {
+        x: {
+          ticks: {
+            autoSkip: true,
+            maxRotation: 0,
+            color: '#5a6a59'
+          },
+          grid: {
+            color: 'rgba(120, 138, 118, 0.2)'
+          }
+        },
+        y: {
+          ticks: {
+            color: '#5a6a59'
+          },
+          grid: {
+            color: 'rgba(120, 138, 118, 0.2)'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top'
+        },
+        tooltip: {
+          callbacks: {
+            title: (items: TooltipItem<'line'>[]) => {
+              const dataIndex = items[0]?.dataIndex ?? 0;
+              const point = this.chartPoints()[metric]?.[dataIndex];
+              return point ? this.toTooltipDateTime(point.createdAt) : '';
+            },
+            label: (item: TooltipItem<'line'>) => {
+              const palette = this.metricPalette[metric];
+              return `${palette.label}: ${item.parsed.y} ${palette.unit}`;
+            }
+          }
+        }
+      }
+    };
+  }
 
   ngOnInit(): void {
     this.applyPresetWindow('24h');
@@ -540,6 +593,26 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
     return date.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit'
+    });
+  }
+
+  private toTooltipTime(value: string): string {
+    return new Date(value).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  private toTooltipDateTime(value: string): string {
+    return new Date(value).toLocaleString([], {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
     });
   }
 }

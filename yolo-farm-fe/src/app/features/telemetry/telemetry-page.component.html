@@ -3,7 +3,6 @@
     <div>
       <p class="eyebrow">Sensor Telemetry</p>
       <h2>Realtime Telemetry</h2>
-      <p class="subtitle">Read data from /api/telemetry/latest and /api/telemetry/history.</p>
     </div>
 
     <button type="button" class="btn btn-secondary" (click)="loadTelemetry()" [disabled]="loading()">
@@ -72,7 +71,7 @@
       <p class="subtitle">No latest telemetry available.</p>
     }
   </section>
-  
+
   <section class="card chart-card">
     <div class="chart-controls">
       <label>
@@ -192,7 +191,7 @@
               <canvas
                 baseChart
                 [data]="chartData()[metric]"
-                [options]="cartesianChartOptions"
+                [options]="getChartOptions(metric)"
                 [type]="'line'"
               ></canvas>
             }
