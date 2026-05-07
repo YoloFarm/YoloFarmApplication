@@ -16,7 +16,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -188,38 +190,50 @@ public class TelemetryService {
     }
 
 
-    public TelemetryResponse getLatestTelemetry(String deviceId, String sensorType) {
-        // BƯỚC 1: Lấy Device và KIỂM TRA QUYỀN trước khi đụng vào Cache!
+    public Map<String, TelemetryResponse> getLatestTelemetryAll(String deviceId) {
+        // BƯỚC 1: Lấy Device và KIỂM TRA QUYỀN (Chỉ cần làm 1 lần cho cả request)
         Device device = deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
 
-        checkDeviceOwnership(device); // Chặn ngay nếu không có quyền
+        checkDeviceOwnership(device);
 
-        // BƯỚC 2: Kiểm tra Cache an toàn
-        String cacheKey = REDIS_KEY_PREFIX + deviceId + ":" + sensorType;
-        String cachedData = redisService.getValue(cacheKey);
+        // Khởi tạo Map để chứa kết quả của 4 loại sensor
+        Map<String, TelemetryResponse> result = new HashMap<>();
 
-        if (cachedData != null) {
-            try {
-                return objectMapper.readValue(cachedData, TelemetryResponse.class);
-            } catch (JsonProcessingException e) {
-                log.error("Lỗi Parse JSON từ Redis: {}", e.getMessage());
+        // BƯỚC 2: Duyệt qua danh sách 4 sensor đã định nghĩa ở đầu class (SENSOR_METRICS)
+        for (String sensorType : SENSOR_METRICS) {
+            String cacheKey = REDIS_KEY_PREFIX + deviceId + ":" + sensorType;
+            String cachedData = redisService.getValue(cacheKey);
+
+            // 2.1 Kiểm tra Cache
+            if (cachedData != null) {
+                try {
+                    TelemetryResponse cachedResponse = objectMapper.readValue(cachedData, TelemetryResponse.class);
+                    result.put(sensorType, cachedResponse);
+                    continue; // Lấy được từ Cache thì bỏ qua DB, chạy tiếp sensor khác
+                } catch (JsonProcessingException e) {
+                    log.error("Lỗi Parse JSON từ Redis cho key {}: {}", cacheKey, e.getMessage());
+                }
             }
+
+            // 2.2 Nếu Cache rỗng, gọi xuống DB
+            // LƯU Ý: Dùng ifPresent thay vì orElseThrow.
+            // Đề phòng trường hợp thiết bị mới bật, gửi TEMP rồi nhưng chưa kịp gửi LIGHT, API vẫn không bị sập.
+            repository.findTopByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(deviceId, sensorType)
+                    .ifPresent(telemetry -> {
+                        TelemetryResponse response = mapToResponse(telemetry);
+                        result.put(sensorType, response);
+
+                        // Lưu ngược lại vào Cache
+                        try {
+                            redisService.setValue(cacheKey, objectMapper.writeValueAsString(response), 1L, TimeUnit.DAYS);
+                        } catch (JsonProcessingException e) {
+                            log.error("Lỗi lưu JSON vào Redis cho key {}: {}", cacheKey, e.getMessage());
+                        }
+                    });
         }
 
-        // BƯỚC 3: Nếu Cache rỗng thì mới chui xuống DB
-        SensorTelemetry telemetry = repository.findTopByDevice_DeviceIdAndSensorTypeOrderByCreatedAtDesc(deviceId, sensorType)
-                .orElseThrow(() -> new AppException(ErrorCode.NO_TELEMETRY_DATA));
-
-        TelemetryResponse response = mapToResponse(telemetry);
-
-        try {
-            redisService.setValue(cacheKey, objectMapper.writeValueAsString(response), 1L, TimeUnit.DAYS);
-        } catch (JsonProcessingException e) {
-            log.error("Lỗi lưu JSON vào Redis: {}", e.getMessage());
-        }
-
-        return response;
+        return result; // Trả về Map chứa tối đa 4 keys: TEMP, HUMIDITY, SOIL_MOISTURE, LIGHT
     }
 
     public Page<TelemetryResponse> getTelemetryHistory(String deviceId, String sensorType, int page, int size) {

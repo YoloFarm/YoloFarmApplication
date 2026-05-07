@@ -12,7 +12,7 @@ public class DeviceMapper {
         return Device.builder()
                 .deviceId(request.getDeviceId())
                 .name(request.getName())
-                .status(DeviceStatus.OFFLINE)
+                .status(DeviceStatus.ONLINE)
                 .active(true)
                 .build();
 

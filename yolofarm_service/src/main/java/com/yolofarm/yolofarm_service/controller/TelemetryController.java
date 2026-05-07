@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/telemetry")
 @RequiredArgsConstructor
@@ -15,13 +17,10 @@ public class TelemetryController {
     private final TelemetryService telemetryService;
 
 
-    @GetMapping("/latest/{deviceId}")
-    public ApiResponse<TelemetryResponse> getLatestTelemetry(
-            @PathVariable String deviceId,
-            @RequestParam String sensorType // Bổ sung tham số này
-    ) {
-        return ApiResponse.<TelemetryResponse>builder()
-                .result(telemetryService.getLatestTelemetry(deviceId, sensorType))
+    @GetMapping("/{deviceId}/latest")
+    public ApiResponse<Map<String, TelemetryResponse>> getLatestAll(@PathVariable String deviceId) {
+        return ApiResponse.<Map<String, TelemetryResponse>>builder()
+                .result(telemetryService.getLatestTelemetryAll(deviceId))
                 .build();
     }
 
