@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import {
@@ -20,11 +20,17 @@ import { extractApiErrorMessage } from '../../core/utils/http-error.util';
   templateUrl: './devices-page.component.html',
   styleUrl: './devices-page.component.scss'
 })
-export class DevicesPageComponent implements OnInit {
+export class DevicesPageComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly deviceService = inject(DeviceService);
   private readonly controlService = inject(ControlService);
   protected readonly authStore = inject(AuthStore);
+  private readonly pumpTimers = new Map<number, ReturnType<typeof setInterval>>();
+  private readonly maxPumpSeconds = 24 * 60 * 60 - 1;
+  private readonly pumpStorageKey = 'yolo-farm:pump-countdowns';
+  protected readonly pumpHourOptions = Array.from({ length: 24 }, (_, index) => index);
+  protected readonly pumpMinuteOptions = Array.from({ length: 60 }, (_, index) => index);
+  protected readonly pumpSecondOptions = Array.from({ length: 60 }, (_, index) => index);
 
   protected readonly devices = signal<Device[]>([]);
   protected readonly loading = signal(false);
@@ -44,6 +50,8 @@ export class DevicesPageComponent implements OnInit {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly infoMessage = signal<string | null>(null);
   protected readonly isAdmin = signal(false);
+  protected readonly pumpInputs = signal<Record<number, number>>({});
+  protected readonly pumpCountdowns = signal<Record<number, number>>({});
 
   protected readonly form = this.fb.nonNullable.group({
     deviceId: ['', Validators.required],
@@ -58,6 +66,13 @@ export class DevicesPageComponent implements OnInit {
   ngOnInit(): void {
     this.isAdmin.set(this.authStore.role() === 'ADMIN');
     this.loadDevices(0);
+    setInterval(() => {
+        this.loadComponents(this.selectedDevice()?.deviceId || '');
+    }, 30000);
+  }
+
+  ngOnDestroy(): void {
+    this.clearVisiblePumpState();
   }
 
   protected loadDevices(page = this.page()): void {
@@ -310,8 +325,13 @@ export class DevicesPageComponent implements OnInit {
   protected formatComponentStatus(component: DeviceComponent): string {
     const type = this.componentType(component);
 
-    if (type === 'FAN' || type === 'PUMP') {
+    if (type === 'FAN') {
       return `${this.getPowerValue(component)}%`;
+    }
+
+    if (type === 'PUMP') {
+      const remaining = this.getPumpRemainingSeconds(component);
+      return remaining > 0 ? `Đang đếm ngược: ${this.formatDuration(remaining)}` : 'Chưa chạy';
     }
 
     return component.status || '--';
@@ -324,8 +344,12 @@ export class DevicesPageComponent implements OnInit {
       return this.isLedOn(component);
     }
 
-    if (type === 'FAN' || type === 'PUMP') {
+    if (type === 'FAN') {
       return this.getPowerValue(component) > 0;
+    }
+
+    if (type === 'PUMP') {
+      return this.getPumpRemainingSeconds(component) > 0;
     }
 
     return component.status === 'ON';
@@ -369,9 +393,67 @@ export class DevicesPageComponent implements OnInit {
   }
 
   protected pumpPulseDuration(component: DeviceComponent): string {
-    const power = this.getPowerValue(component);
-    const duration = 2.4 - power * 0.015;
-    return `${Math.max(0.6, duration).toFixed(2)}s`;
+    return this.isPumpRunning(component) ? '1.2s' : '2.8s';
+  }
+
+  protected isPumpRunning(component: DeviceComponent): boolean {
+    return this.getPumpRemainingSeconds(component) > 0;
+  }
+
+  protected getPumpInputSeconds(component: DeviceComponent): number {
+    return this.pumpInputs()[component.id] ?? 0;
+  }
+
+  protected getPumpHours(component: DeviceComponent): number {
+    return this.breakPumpSeconds(this.getPumpInputSeconds(component)).hours;
+  }
+
+  protected getPumpMinutes(component: DeviceComponent): number {
+    return this.breakPumpSeconds(this.getPumpInputSeconds(component)).minutes;
+  }
+
+  protected getPumpSeconds(component: DeviceComponent): number {
+    return this.breakPumpSeconds(this.getPumpInputSeconds(component)).seconds;
+  }
+
+  protected formatPumpCountdown(component: DeviceComponent): string {
+    return this.formatDuration(this.getPumpRemainingSeconds(component));
+  }
+
+  protected onPumpTimePartChange(component: DeviceComponent, part: 'hours' | 'minutes' | 'seconds', event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const rawValue = Number.parseInt(input.value, 10);
+    const nextValue = Number.isNaN(rawValue) ? 0 : rawValue;
+    const current = this.breakPumpSeconds(this.getPumpInputSeconds(component));
+    const nextDraft = {
+      hours: part === 'hours' ? nextValue : current.hours,
+      minutes: part === 'minutes' ? nextValue : current.minutes,
+      seconds: part === 'seconds' ? nextValue : current.seconds
+    };
+
+    this.setPumpInput(component.id, this.composePumpSeconds(nextDraft.hours, nextDraft.minutes, nextDraft.seconds));
+  }
+
+  protected startPumpTimer(component: DeviceComponent): void {
+    const durationSeconds = this.getPumpInputSeconds(component);
+    if (durationSeconds <= 0) {
+      this.componentsErrorMessage.set('Please choose a pump duration greater than 0 seconds.');
+      return;
+    }
+
+    const previousCountdown = this.getPumpRemainingSeconds(component);
+    const previousInput = this.getPumpInputSeconds(component);
+    const previousStatus = component.status;
+    const endAt = Date.now() + durationSeconds * 1000;
+
+    this.componentsErrorMessage.set(null);
+    this.setPumpCountdown(component.id, durationSeconds);
+    this.persistPumpCountdown(component.id, endAt);
+    this.runPumpTimer(component.id, endAt);
+
+    this.sendComponentCommand(component, String(durationSeconds), previousStatus, undefined, () => {
+      this.restorePumpCountdown(component.id, previousInput, previousCountdown);
+    });
   }
 
   private loadComponents(deviceId: string): void {
@@ -384,6 +466,7 @@ export class DevicesPageComponent implements OnInit {
       .subscribe({
         next: (components) => {
           this.components.set(components);
+          this.restorePumpState(components);
         },
         error: (error: unknown) => {
           this.components.set([]);
@@ -400,12 +483,15 @@ export class DevicesPageComponent implements OnInit {
     this.componentsErrorMessage.set(null);
     this.componentsInfoMessage.set(null);
     this.resetComponentForm();
+    this.clearVisiblePumpState();
   }
 
   private sendComponentCommand(
     component: DeviceComponent,
     action: string,
-    previousStatus?: string
+    previousStatus?: string,
+    onSuccess?: () => void,
+    onFailure?: () => void
   ): void {
     const deviceId = component.deviceId || this.selectedDevice()?.deviceId;
 
@@ -422,6 +508,9 @@ export class DevicesPageComponent implements OnInit {
     this.controlService
       .sendCommand({ deviceId, command: component.codeName, action })
       .subscribe({
+        next: () => {
+          onSuccess?.();
+        },
         error: (error: unknown) => {
           this.componentsErrorMessage.set(
             extractApiErrorMessage(error, 'Unable to update device component.')
@@ -429,6 +518,7 @@ export class DevicesPageComponent implements OnInit {
           if (previousStatus !== undefined) {
             this.updateComponentStatus(component.id, previousStatus);
           }
+          onFailure?.();
         }
       });
   }
@@ -452,6 +542,234 @@ export class DevicesPageComponent implements OnInit {
     }
 
     return Math.min(100, Math.max(0, value));
+  }
+
+  private getPumpRemainingSeconds(component: DeviceComponent): number {
+    return this.pumpCountdowns()[component.id] ?? 0;
+  }
+
+  private parsePumpSeconds(raw: string | number | null | undefined): number {
+    if (raw === null || raw === undefined) {
+      return 0;
+    }
+
+    const value = typeof raw === 'number' ? raw : Number.parseInt(raw, 10);
+    if (Number.isNaN(value)) {
+      return 0;
+    }
+
+    return this.normalizePumpSeconds(value);
+  }
+
+  private breakPumpSeconds(totalSeconds: number): { hours: number; minutes: number; seconds: number } {
+    const normalized = this.normalizePumpSeconds(totalSeconds);
+    const hours = Math.floor(normalized / 3600);
+    const minutes = Math.floor((normalized % 3600) / 60);
+    const seconds = normalized % 60;
+
+    return { hours, minutes, seconds };
+  }
+
+  private composePumpSeconds(hours: number, minutes: number, seconds: number): number {
+    return this.normalizePumpSeconds(hours * 3600 + minutes * 60 + seconds);
+  }
+
+  private normalizePumpSeconds(value: number): number {
+    const safeValue = Math.max(0, Math.floor(value));
+    return Math.min(this.maxPumpSeconds, safeValue);
+  }
+
+  private runPumpTimer(componentId: number, endAt: number): void {
+    this.clearPumpTimer(componentId);
+
+    const tick = () => {
+      const remainingSeconds = this.getRemainingSeconds(endAt);
+
+      if (remainingSeconds <= 0) {
+        this.setPumpCountdown(componentId, 0);
+        this.setPumpInput(componentId, 0);
+        this.clearPumpCountdown(componentId);
+        this.clearPumpTimer(componentId);
+        return;
+      }
+
+      this.setPumpCountdown(componentId, remainingSeconds);
+      this.setPumpInput(componentId, remainingSeconds);
+    };
+
+    tick();
+
+    const timer = setInterval(tick, 1000);
+    this.pumpTimers.set(componentId, timer);
+  }
+
+  private restorePumpCountdown(componentId: number, inputSeconds: number, countdownSeconds: number): void {
+    if (countdownSeconds <= 0) {
+      this.setPumpCountdown(componentId, 0);
+      this.setPumpInput(componentId, inputSeconds);
+      this.clearPumpCountdown(componentId);
+      this.clearPumpTimer(componentId);
+      return;
+    }
+
+    const endAt = Date.now() + countdownSeconds * 1000;
+    this.setPumpCountdown(componentId, countdownSeconds);
+    this.setPumpInput(componentId, inputSeconds);
+    this.persistPumpCountdown(componentId, endAt);
+    this.runPumpTimer(componentId, endAt);
+  }
+
+  private setPumpInput(componentId: number, seconds: number): void {
+    this.pumpInputs.update((state) => ({
+      ...state,
+      [componentId]: this.normalizePumpSeconds(seconds)
+    }));
+  }
+
+  private setPumpCountdown(componentId: number, seconds: number): void {
+    this.pumpCountdowns.update((state) => ({
+      ...state,
+      [componentId]: this.normalizePumpSeconds(seconds)
+    }));
+  }
+
+  private clearPumpTimer(componentId: number): void {
+    const timer = this.pumpTimers.get(componentId);
+    if (!timer) {
+      return;
+    }
+
+    clearInterval(timer);
+    this.pumpTimers.delete(componentId);
+  }
+
+  private clearAllPumpTimers(): void {
+    this.pumpTimers.forEach((timer) => clearInterval(timer));
+    this.pumpTimers.clear();
+  }
+
+  private clearVisiblePumpState(): void {
+    this.clearAllPumpTimers();
+    this.pumpCountdowns.set({});
+    this.pumpInputs.set({});
+  }
+
+  private restorePumpState(components: DeviceComponent[]): void {
+    const sessions = this.readPumpSessions();
+    const pumpIds = new Set(
+      components.filter((component) => this.componentType(component) === 'PUMP').map((component) => component.id)
+    );
+
+    this.pumpTimers.forEach((timer, componentId) => {
+      if (!pumpIds.has(componentId)) {
+        clearInterval(timer);
+        this.pumpTimers.delete(componentId);
+      }
+    });
+
+    this.pumpInputs.set({});
+    this.pumpCountdowns.set({});
+
+    components
+      .filter((component) => this.componentType(component) === 'PUMP')
+      .forEach((component) => {
+        const endAt = sessions[component.id];
+        if (!endAt) {
+          return;
+        }
+
+        const remainingSeconds = this.getRemainingSeconds(endAt);
+        if (remainingSeconds <= 0) {
+          this.clearPumpCountdown(component.id);
+          return;
+        }
+
+        this.setPumpCountdown(component.id, remainingSeconds);
+        this.setPumpInput(component.id, remainingSeconds);
+        this.runPumpTimer(component.id, endAt);
+      });
+  }
+
+  private readPumpSessions(): Record<number, number> {
+    if (!this.canUseLocalStorage()) {
+      return {};
+    }
+
+    try {
+      const rawValue = localStorage.getItem(this.pumpStorageKey);
+      if (!rawValue) {
+        return {};
+      }
+
+      const parsed = JSON.parse(rawValue) as Record<string, number>;
+      return Object.entries(parsed).reduce<Record<number, number>>((accumulator, [id, endAt]) => {
+        const componentId = Number.parseInt(id, 10);
+        if (!Number.isNaN(componentId) && typeof endAt === 'number') {
+          accumulator[componentId] = endAt;
+        }
+        return accumulator;
+      }, {});
+    } catch {
+      return {};
+    }
+  }
+
+  private persistPumpCountdown(componentId: number, endAt: number): void {
+    if (!this.canUseLocalStorage()) {
+      return;
+    }
+
+    const sessions = this.readPumpSessions();
+    sessions[componentId] = endAt;
+    localStorage.setItem(this.pumpStorageKey, JSON.stringify(sessions));
+  }
+
+  private clearPumpCountdown(componentId: number): void {
+    if (!this.canUseLocalStorage()) {
+      return;
+    }
+
+    const sessions = this.readPumpSessions();
+    if (!(componentId in sessions)) {
+      return;
+    }
+
+    delete sessions[componentId];
+    localStorage.setItem(this.pumpStorageKey, JSON.stringify(sessions));
+  }
+
+  private getRemainingSeconds(endAt: number): number {
+    return Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+  }
+
+  private canUseLocalStorage(): boolean {
+    return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+  }
+
+  private formatTimeInput(seconds: number): string {
+    const normalized = this.normalizePumpSeconds(seconds);
+    const hours = Math.floor(normalized / 3600);
+    const minutes = Math.floor((normalized % 3600) / 60);
+    const remainingSeconds = normalized % 60;
+
+    return `${this.padTime(hours)}:${this.padTime(minutes)}:${this.padTime(remainingSeconds)}`;
+  }
+
+  private formatDuration(totalSeconds: number): string {
+    const normalized = this.normalizePumpSeconds(totalSeconds);
+    const hours = Math.floor(normalized / 3600);
+    const minutes = Math.floor((normalized % 3600) / 60);
+    const seconds = normalized % 60;
+
+    if (hours > 0) {
+      return `${hours}:${this.padTime(minutes)}:${this.padTime(seconds)}`;
+    }
+
+    return `${this.padTime(minutes)}:${this.padTime(seconds)}`;
+  }
+
+  protected padTime(value: number): string {
+    return value.toString().padStart(2, '0');
   }
 
   protected nextPage(): void {

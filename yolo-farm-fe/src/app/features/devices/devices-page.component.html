@@ -215,15 +215,12 @@
                   </span>
                 </td>
                 <td class="control-cell">
-                  @if (componentType(component) === 'FAN' || componentType(component) === 'PUMP') {
+                  @if (componentType(component) === 'FAN') {
                     <div class="component-control">
                       <div
-                        class="control-visual"
-                        [class.fan]="componentType(component) === 'FAN'"
-                        [class.pump]="componentType(component) === 'PUMP'"
+                        class="control-visual fan"
                         [class.paused]="getPowerValue(component) === 0"
                         [style.--spin-duration]="fanSpinDuration(component)"
-                        [style.--pulse-duration]="pumpPulseDuration(component)"
                       >
                         <div class="rotor"></div>
                         <div class="hub"></div>
@@ -242,6 +239,73 @@
                           (input)="onPowerInput(component, $event)"
                           (change)="onPowerChange(component, $event)"
                         />
+                      </div>
+                    </div>
+                  } @else if (componentType(component) === 'PUMP') {
+                    <div class="component-control">
+                      <div
+                        class="control-visual pump"
+                        [class.paused]="!isPumpRunning(component)"
+                        [style.--pulse-duration]="pumpPulseDuration(component)"
+                      >
+                        <div class="rotor"></div>
+                        <div class="hub"></div>
+                      </div>
+                      <div class="timer-control">
+                        <div class="range-header">
+                          <span>Đếm ngược</span>
+                          <span class="timer-display">
+                            {{ isPumpRunning(component) ? 'Đang chạy: ' + formatPumpCountdown(component) : 'Chưa chạy' }}
+                          </span>
+                        </div>
+                        <div class="timer-selects">
+                          <label>
+                            <span>Giờ</span>
+                            <select
+                              [value]="getPumpHours(component)"
+                              (change)="onPumpTimePartChange(component, 'hours', $event)"
+                            >
+                              @for (hour of pumpHourOptions; track hour) {
+                                <option [value]="hour">{{ padTime(hour) }}</option>
+                              }
+                            </select>
+                          </label>
+
+                          <label>
+                            <span>Phút</span>
+                            <select
+                              [value]="getPumpMinutes(component)"
+                              (change)="onPumpTimePartChange(component, 'minutes', $event)"
+                            >
+                              @for (minute of pumpMinuteOptions; track minute) {
+                                <option [value]="minute">{{ padTime(minute) }}</option>
+                              }
+                            </select>
+                          </label>
+
+                          <label>
+                            <span>Giây</span>
+                            <select
+                              [value]="getPumpSeconds(component)"
+                              (change)="onPumpTimePartChange(component, 'seconds', $event)"
+                            >
+                              @for (second of pumpSecondOptions; track second) {
+                                <option [value]="second">{{ padTime(second) }}</option>
+                              }
+                            </select>
+                          </label>
+                        </div>
+
+                        <div class="timer-actions">
+                          <button
+                            type="button"
+                            class="btn btn-secondary"
+                            (click)="startPumpTimer(component)"
+                            [disabled]="getPumpInputSeconds(component) === 0"
+                          >
+                            {{ isPumpRunning(component) ? 'Bắt đầu lại' : 'Bắt đầu' }}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   } @else if (componentType(component) === 'LED') {
