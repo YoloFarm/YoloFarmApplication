@@ -15,7 +15,7 @@ export class AlertRuleService {
     return this.api.get<AlertRuleResponse[]>(`/api/alerts/rules/${encodeURIComponent(deviceId)}`);
   }
 
-  deleteRule(id: number): Observable<string> {
-    return this.api.delete<string>(`/api/alerts/rules/${id}`);
+  deleteRule(id: number): Observable<void> {
+    return this.api.deleteText(`/api/alerts/rules/${id}`);
   }
 }
