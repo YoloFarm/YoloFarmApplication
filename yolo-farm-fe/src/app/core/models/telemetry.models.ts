@@ -12,4 +12,4 @@ export type LatestTelemetry = Partial<Record<TelemetrySensorType, TelemetryData>
 
 export type TelemetryMetric = 'temperature' | 'humidity' | 'soilMoisture' | 'light';
 
-export type TelemetryRangePreset = '1h' | '6h' | '24h' | 'custom';
+export type TelemetryRangePreset = '1m' | '1h' | '6h' | '24h' | 'custom';

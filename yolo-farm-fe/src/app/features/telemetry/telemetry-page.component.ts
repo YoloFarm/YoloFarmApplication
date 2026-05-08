@@ -53,7 +53,7 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
 
   protected readonly devices = signal<Device[]>([]);
   protected readonly selectedDeviceId = signal<string>('');
-  protected readonly selectedRange = signal<TelemetryRangePreset>('1h');
+  protected readonly selectedRange = signal<TelemetryRangePreset>('1m');
   protected readonly customStart = signal('');
   protected readonly customEnd = signal('');
   protected readonly realtimeEnabled = signal(false);
@@ -74,6 +74,7 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
   protected readonly metrics: TelemetryMetric[] = ['temperature', 'humidity', 'soilMoisture', 'light'];
 
   protected readonly rangeOptions: Array<{ key: TelemetryRangePreset; label: string }> = [
+    { key: '1m', label: 'Last 1m' },
     { key: '1h', label: 'Last 1h' },
     { key: '6h', label: 'Last 6h' },
     { key: '24h', label: 'Last 24h' },
@@ -179,7 +180,7 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.applyPresetWindow('24h');
+    this.applyPresetWindow('1m');
     void this.loadDeviceList();
   }
 
@@ -303,9 +304,10 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
     void this.loadChartHistory();
   }
 
-  protected toggleRealtime(checked: boolean): void {
+  protected async toggleRealtime(checked: boolean): Promise<void> {
     this.realtimeEnabled.set(checked);
     if (checked) {
+      await this.loadTelemetry();
       this.startRealtimePolling();
     } else {
       this.stopRealtimePolling();
@@ -449,7 +451,7 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
     this.stopRealtimePolling();
 
     this.realtimeTimer = setInterval(() => {
-      void this.fetchRealtimeLatest();
+      void this.loadTelemetry();
     }, this.realtimeIntervalMs);
   }
 
@@ -532,17 +534,19 @@ export class TelemetryPageComponent implements OnInit, OnDestroy {
       return { start: end, end: start };
     }
 
-    const hours = preset === '1h' ? 1 : preset === '6h' ? 6 : 24;
+    const minutes = preset === '1m' ? 1 : 0;
+    const hours = preset === '1h' ? 1 : preset === '6h' ? 6 : preset === '24h' ? 24 : 0;
     return {
-      start: new Date(now.getTime() - hours * 60 * 60 * 1000),
+      start: new Date(now.getTime() - (minutes * 60 * 1000 + hours * 60 * 60 * 1000)),
       end: now
     };
   }
 
   private applyPresetWindow(preset: Exclude<TelemetryRangePreset, 'custom'>): void {
     const now = new Date();
-    const hours = preset === '1h' ? 1 : preset === '6h' ? 6 : 24;
-    const start = new Date(now.getTime() - hours * 60 * 60 * 1000);
+    const minutes = preset === '1m' ? 1 : 0;
+    const hours = preset === '1h' ? 1 : preset === '6h' ? 6 : preset === '24h' ? 24 : 0;
+    const start = new Date(now.getTime() - (minutes * 60 * 1000 + hours * 60 * 60 * 1000));
 
     this.customStart.set(this.toLocalInputValue(start));
     this.customEnd.set(this.toLocalInputValue(now));
