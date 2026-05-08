@@ -6,13 +6,13 @@ import { ControlService } from '../../core/services/control.service';
 import { DeviceService } from '../../core/services/device.service';
 import { TelemetryService } from '../../core/services/telemetry.service';
 import { Device, DeviceComponent } from '../../core/models/device.models';
-import { TelemetryData } from '../../core/models/telemetry.models';
+import { LatestTelemetry } from '../../core/models/telemetry.models';
 import { AuthStore } from '../../core/store/auth.store';
 import { extractApiErrorMessage } from '../../core/utils/http-error.util';
 
 interface DeviceSnapshot {
   device: Device;
-  telemetry: TelemetryData | null;
+  telemetry: LatestTelemetry | null;
 }
 
 @Component({
@@ -175,6 +175,23 @@ export class DashboardPageComponent implements OnInit {
           this.claimFeedback.set(extractApiErrorMessage(error, 'Unable to claim device.'));
         }
       });
+  }
+
+  protected snapshotTimestamp(telemetry: LatestTelemetry | null): string | null {
+    if (!telemetry) {
+      return null;
+    }
+
+    const timestamps = Object.values(telemetry)
+      .map((item) => item?.createdAt)
+      .filter((value): value is string => Boolean(value))
+      .map((value) => new Date(value).getTime());
+
+    if (!timestamps.length) {
+      return null;
+    }
+
+    return new Date(Math.max(...timestamps)).toISOString();
   }
 
   private loadControlComponents(deviceId: string): void {

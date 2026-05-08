@@ -2,8 +2,7 @@
   <header class="card page-header">
     <div>
       <p class="eyebrow">Sensor Telemetry</p>
-      <h2>Chart + Realtime + History</h2>
-      <p class="subtitle">Read data from /api/telemetry/latest and /api/telemetry/history.</p>
+      <h2>Realtime Telemetry</h2>
     </div>
 
     <button type="button" class="btn btn-secondary" (click)="loadTelemetry()" [disabled]="loading()">
@@ -15,6 +14,64 @@
     <p class="alert danger">{{ errorMessage() }}</p>
   }
 
+  <section class="card latest-card">
+    <h3>Latest Telemetry</h3>
+
+    @if (latestTelemetry()) {
+      <div class="latest-grid">
+        @for (metric of metrics; track metric) {
+          <div class="latest-item">
+            <span class="metric-icon" [style.--metric-color]="getMetricConfig(metric).color">
+              <span class="metric-glyph" aria-hidden="true">
+                @switch (metric) {
+                  @case ('temperature') {
+                    <svg viewBox="0 0 24 24">
+                      <path d="M14 14.76V5a2 2 0 1 0-4 0v9.76a4 4 0 1 0 4 0Z"></path>
+                      <line x1="12" y1="9" x2="12" y2="13"></line>
+                    </svg>
+                  }
+                  @case ('humidity') {
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 2.5s-6 6.5-6 10a6 6 0 0 0 12 0c0-3.5-6-10-6-10Z"></path>
+                    </svg>
+                  }
+                  @case ('soilMoisture') {
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 20V10"></path>
+                      <path d="M12 10c0-4 3-6 7-6 0 4-3 6-7 6Z"></path>
+                      <path d="M12 10c0-3-2.5-5-6-5 0 3.5 2 5 6 5Z"></path>
+                    </svg>
+                  }
+                  @default {
+                    <svg viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="4"></circle>
+                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                    </svg>
+                  }
+                }
+              </span>
+            </span>
+            <div>
+              <p>{{ getMetricConfig(metric).label }}</p>
+              <strong>
+                {{ getLatestMetric(metric)?.value ?? '--' }} {{ getMetricConfig(metric).unit }}
+              </strong>
+              <span class="subtitle latest-date">
+                {{
+                  getLatestMetric(metric)?.createdAt
+                    ? (getLatestMetric(metric)?.createdAt | date: 'short')
+                    : 'No data'
+                }}
+              </span>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <p class="subtitle">No latest telemetry available.</p>
+    }
+  </section>
+
   <section class="card chart-card">
     <div class="chart-controls">
       <label>
@@ -23,28 +80,6 @@
           <option value="" disabled>Select device</option>
           @for (device of devices(); track device.id) {
             <option [value]="device.deviceId">{{ device.name }} ({{ device.deviceId }})</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        Metric
-        <select
-          [value]="selectedMetric()"
-          (change)="onMetricChange($any($event.target).value)"
-          [disabled]="selectedChartType() === 'radar'"
-        >
-          @for (metric of metricOptions; track metric.key) {
-            <option [value]="metric.key">{{ metric.label }}</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        Chart Type
-        <select [value]="selectedChartType()" (change)="onChartTypeChange($any($event.target).value)">
-          @for (chartType of chartTypeOptions; track chartType.key) {
-            <option [value]="chartType.key">{{ chartType.label }}</option>
           }
         </select>
       </label>
@@ -68,7 +103,7 @@
       </label>
 
       <button type="button" class="btn btn-secondary" (click)="refreshChart()" [disabled]="chartLoading()">
-        {{ chartLoading() ? 'Updating...' : 'Refresh Chart' }}
+        {{ chartLoading() ? 'Updating...' : 'Refresh Charts' }}
       </button>
     </div>
 
@@ -98,106 +133,77 @@
       </div>
     }
 
-    <div class="chart-wrap">
-      @if (!chartPoints().length && !chartLoading()) {
-        <p class="subtitle">No telemetry points in the selected range.</p>
-      } @else {
-        <canvas
-          baseChart
-          [data]="chartData()"
-          [options]="chartOptions()"
-          [type]="selectedChartType()"
-        ></canvas>
+    <div class="chart-grid">
+      @for (metric of metrics; track metric) {
+        <article class="metric-card">
+          <header class="metric-header">
+            <div class="metric-title">
+              <span class="metric-icon" [style.--metric-color]="getMetricConfig(metric).color">
+                <span class="metric-glyph" aria-hidden="true">
+                  @switch (metric) {
+                    @case ('temperature') {
+                      <svg viewBox="0 0 24 24">
+                        <path d="M14 14.76V5a2 2 0 1 0-4 0v9.76a4 4 0 1 0 4 0Z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                      </svg>
+                    }
+                    @case ('humidity') {
+                      <svg viewBox="0 0 24 24">
+                        <path d="M12 2.5s-6 6.5-6 10a6 6 0 0 0 12 0c0-3.5-6-10-6-10Z"></path>
+                      </svg>
+                    }
+                    @case ('soilMoisture') {
+                      <svg viewBox="0 0 24 24">
+                        <path d="M12 20V10"></path>
+                        <path d="M12 10c0-4 3-6 7-6 0 4-3 6-7 6Z"></path>
+                        <path d="M12 10c0-3-2.5-5-6-5 0 3.5 2 5 6 5Z"></path>
+                      </svg>
+                    }
+                    @default {
+                      <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                      </svg>
+                    }
+                  }
+                </span>
+              </span>
+              <div>
+                <p>{{ getMetricConfig(metric).label }}</p>
+                <strong>
+                  {{ getLatestMetric(metric)?.value ?? '--' }} {{ getMetricConfig(metric).unit }}
+                </strong>
+              </div>
+            </div>
+            <p class="subtitle">
+              {{
+                getLatestMetric(metric)?.createdAt
+                  ? (getLatestMetric(metric)?.createdAt | date: 'short')
+                  : 'No data'
+              }}
+            </p>
+          </header>
+
+          <div class="chart-wrap">
+            @if (!chartPoints()[metric]?.length && !chartLoading()) {
+              <p class="subtitle">No telemetry points in the selected range.</p>
+            } @else {
+              <canvas
+                baseChart
+                [data]="chartData()[metric]"
+                [options]="getChartOptions(metric)"
+                [type]="'line'"
+              ></canvas>
+            }
+          </div>
+        </article>
       }
     </div>
-
-    @if (selectedChartType() === 'radar') {
-      <div class="radar-info">
-        <p class="subtitle">
-          <strong>Radar Chart:</strong> Compares average metrics using normalized scale (0-100%).
-          Each metric is scaled by its reference maximum:
-          Temperature (÷50°C), Humidity (÷100%), Soil Moisture (÷100%), Light (÷1000 lux).
-          Example: Temperature 30°C → (30 ÷ 50) × 100 = <strong>60%</strong>
-        </p>
-      </div>
-    }
 
     @if (lastRealtimeSync()) {
       <p class="subtitle">Last realtime sync: {{ lastRealtimeSync() | date: 'shortTime' }}</p>
     }
   </section>
 
-  <section class="card latest-card">
-    <h3>Latest Telemetry</h3>
-
-    @if (latestTelemetry()) {
-      <div class="latest-grid">
-        <div>
-          <p>Temperature</p>
-          <strong>{{ latestTelemetry()?.temperature ?? '--' }} C</strong>
-        </div>
-        <div>
-          <p>Humidity</p>
-          <strong>{{ latestTelemetry()?.humidity ?? '--' }} %</strong>
-        </div>
-        <div>
-          <p>Soil Moisture</p>
-          <strong>{{ latestTelemetry()?.soilMoisture ?? '--' }} %</strong>
-        </div>
-        <div>
-          <p>Light</p>
-          <strong>{{ latestTelemetry()?.light ?? '--' }}</strong>
-        </div>
-      </div>
-      <p class="subtitle">Updated {{ latestTelemetry()?.createdAt | date: 'short' }}</p>
-    } @else {
-      <p class="subtitle">No latest telemetry available.</p>
-    }
-  </section>
-
-  <section class="card history-card">
-    <h3>Telemetry History</h3>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Temp (C)</th>
-            <th>Humidity (%)</th>
-            <th>Soil (%)</th>
-            <th>Light</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (item of history(); track item.id) {
-            <tr>
-              <td>{{ item.createdAt | date: 'short' }}</td>
-              <td>{{ item.temperature ?? '--' }}</td>
-              <td>{{ item.humidity ?? '--' }}</td>
-              <td>{{ item.soilMoisture ?? '--' }}</td>
-              <td>{{ item.light ?? '--' }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-
-    <div class="pagination">
-      <button type="button" class="btn btn-secondary" (click)="previousPage()" [disabled]="page() === 0">
-        Previous
-      </button>
-
-      <p>Page {{ page() + 1 }} / {{ totalPages() || 1 }} • {{ totalElements() }} records</p>
-
-      <button
-        type="button"
-        class="btn btn-secondary"
-        (click)="nextPage()"
-        [disabled]="page() + 1 >= totalPages()"
-      >
-        Next
-      </button>
-    </div>
-  </section>
+  
 </section>

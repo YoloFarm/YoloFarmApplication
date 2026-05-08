@@ -3,9 +3,6 @@
     <div>
       <p class="eyebrow">Device Management</p>
       <h2>Devices</h2>
-      <p class="subtitle">
-        {{ isAdmin() ? 'Create, update and soft-delete devices via /api/devices.' : 'View devices claimed by your account.' }}
-      </p>
     </div>
   </header>
 
@@ -163,7 +160,7 @@
 
           <label>
             Code Name
-            <input type="text" formControlName="codeName" placeholder="PUMP_1" />
+            <input type="text" formControlName="codeName" placeholder="PUMP1" />
           </label>
         </div>
 
@@ -200,6 +197,7 @@
               <th>Name</th>
               <th>Code Name</th>
               <th>Status</th>
+              <th>Control</th>
               @if (isAdmin()) {
                 <th>Actions</th>
               }
@@ -212,7 +210,53 @@
                 <td>{{ component.name }}</td>
                 <td>{{ component.codeName }}</td>
                 <td>
-                  <span class="chip" [class.online]="component.status === 'ON'">{{ component.status }}</span>
+                  <span class="chip" [class.online]="isComponentActive(component)">
+                    {{ formatComponentStatus(component) }}
+                  </span>
+                </td>
+                <td class="control-cell">
+                  @if (componentType(component) === 'FAN' || componentType(component) === 'PUMP') {
+                    <div class="component-control">
+                      <div
+                        class="control-visual"
+                        [class.fan]="componentType(component) === 'FAN'"
+                        [class.pump]="componentType(component) === 'PUMP'"
+                        [class.paused]="getPowerValue(component) === 0"
+                        [style.--spin-duration]="fanSpinDuration(component)"
+                        [style.--pulse-duration]="pumpPulseDuration(component)"
+                      >
+                        <div class="rotor"></div>
+                        <div class="hub"></div>
+                      </div>
+                      <div class="range-control">
+                        <div class="range-header">
+                          <span>Power</span>
+                          <span>{{ getPowerValue(component) }}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          [value]="getPowerValue(component)"
+                          (input)="onPowerInput(component, $event)"
+                          (change)="onPowerChange(component, $event)"
+                        />
+                      </div>
+                    </div>
+                  } @else if (componentType(component) === 'LED') {
+                    <label class="toggle">
+                      <input
+                        type="checkbox"
+                        [checked]="isLedOn(component)"
+                        (change)="onLedToggle(component, $event)"
+                      />
+                      <span class="toggle-track"></span>
+                      <span class="toggle-label">{{ isLedOn(component) ? 'ON' : 'OFF' }}</span>
+                    </label>
+                  } @else {
+                    <span class="subtitle">No controls</span>
+                  }
                 </td>
                 @if (isAdmin()) {
                   <td class="actions">
