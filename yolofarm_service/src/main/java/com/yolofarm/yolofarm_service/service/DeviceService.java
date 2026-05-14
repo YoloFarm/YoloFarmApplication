@@ -104,9 +104,7 @@ public class DeviceService {
         return deviceMapper.toDeviceResponse(device);
     }
 
-    // ==========================================
-    // TÍNH NĂNG MỚI: XEM THIẾT BỊ CỦA TÔI
-    // ==========================================
+
     public Page<DeviceResponse> getMyDevices(int page, int size) {
         String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
         Pageable pageable = PageRequest.of(page, size);
