@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yolofarm.yolofarm_service.configuration.MqttGateway;
 import com.yolofarm.yolofarm_service.dto.request.ControlRequest;
 import com.yolofarm.yolofarm_service.dto.response.ControlResponse;
+import com.yolofarm.yolofarm_service.dto.response.DeviceActionResponse; // Bác nhớ import DTO mới tạo nhé
 import com.yolofarm.yolofarm_service.entity.Device;
 import com.yolofarm.yolofarm_service.entity.DeviceAction;
 import com.yolofarm.yolofarm_service.entity.DeviceComponent;
@@ -15,9 +16,14 @@ import com.yolofarm.yolofarm_service.repository.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -33,15 +39,10 @@ public class DeviceControlService {
     @Value("${adafruit.mqtt.username}")
     private String adafruitUsername;
 
-    @Transactional
-    public ControlResponse sendControlCommand(ControlRequest request) {
-
-        Device device = deviceRepository.findByDeviceIdAndActiveTrue(request.getDeviceId())
-                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
-
-        // ==========================================
-        // DATA-LEVEL RBAC: KIỂM TRA QUYỀN ĐIỀU KHIỂN
-        // ==========================================
+    // ==========================================
+    // HÀM HELPER: KIỂM TRA QUYỀN ĐIỀU KHIỂN (RBAC)
+    // ==========================================
+    private void checkDeviceOwnership(Device device) {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
 
         // CHỈ KIỂM TRA QUYỀN NẾU CÓ NGƯỜI DÙNG THẬT GỌI API (Bỏ qua nếu là hệ thống chạy ngầm)
@@ -51,11 +52,20 @@ public class DeviceControlService {
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
             if (!isAdmin && !currentEmail.equals(device.getOwnerEmail())) {
-                log.warn(">>> XÂM NHẬP TRÁI PHÉP: User [{}] cố điều khiển thiết bị [{}]", currentEmail, device.getDeviceId());
+                log.warn(">>> XÂM NHẬP TRÁI PHÉP: User [{}] cố truy cập thiết bị [{}]", currentEmail, device.getDeviceId());
                 throw new AppException(ErrorCode.UNAUTHORIZED);
             }
         }
-        // ==========================================
+    }
+
+    @Transactional
+    public ControlResponse sendControlCommand(ControlRequest request) {
+
+        Device device = deviceRepository.findByDeviceIdAndActiveTrue(request.getDeviceId())
+                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
+
+        // Gọi hàm helper để kiểm tra quyền
+        checkDeviceOwnership(device);
 
         DeviceComponent component = componentRepository.findByDevice_DeviceIdAndCodeNameAndActiveTrue(request.getDeviceId(), request.getCommand())
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_COMPONENT_NOT_FOUND));
@@ -87,5 +97,26 @@ public class DeviceControlService {
             log.error(">>> LỖI GỬI LỆNH MQTT: {}", e.getMessage());
             throw new AppException(ErrorCode.MQTT_SEND_FAILURE);
         }
+    }
+
+    public Page<DeviceActionResponse> getDeviceActionLogs(String deviceId, LocalDateTime startDate, LocalDateTime endDate, int page, int size) {
+
+        Device device = deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
+                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
+
+        // Tái sử dụng lại hàm check quyền ở trên cực kỳ gọn gàng
+        checkDeviceOwnership(device);
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        return actionRepository.getActionLogs(deviceId, startDate, endDate, pageable)
+                .map(action -> DeviceActionResponse.builder()
+                        .id(action.getId())
+                        .deviceId(device.getDeviceId())
+                        .component(action.getCommand())
+                        .action(action.getAction())
+                        .executedBy(action.getCreatedBy())
+                        .executedAt(action.getCreatedAt())
+                        .build());
     }
 }
