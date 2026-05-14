@@ -105,10 +105,14 @@ td {
   font-size: 0.95rem;
 }
 
-.component-form-grid {
+.component-form-grid,
+.action-log-filters {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
+}
+
+.component-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .action-log-card {
@@ -116,9 +120,7 @@ td {
 }
 
 .action-log-filters {
-  display: grid;
   grid-template-columns: 1.2fr 1fr 1fr 0.7fr auto;
-  gap: 0.75rem;
   align-items: end;
   padding: 0.85rem;
   border-radius: 0.85rem;
@@ -153,24 +155,6 @@ td {
   letter-spacing: 0.06em;
 }
 
-.component-type-badge.fan {
-  border-color: color-mix(in srgb, #1e749d 42%, var(--line));
-  background: color-mix(in srgb, #1e749d 14%, var(--surface-soft));
-  color: #165b7b;
-}
-
-.component-type-badge.pump {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface-soft));
-  color: var(--accent-strong);
-}
-
-.component-type-badge.led {
-  border-color: color-mix(in srgb, #c5762f 42%, var(--line));
-  background: color-mix(in srgb, #c5762f 16%, var(--surface-soft));
-  color: #8a4e18;
-}
-
 .component-glyph {
   line-height: 1;
 }
@@ -186,29 +170,32 @@ td {
   white-space: nowrap;
 }
 
+.component-type-badge.fan,
+.action-pill.action-pump {
+  border-color: color-mix(in srgb, #1e749d 42%, var(--line));
+  background: color-mix(in srgb, #1e749d 14%, var(--surface-soft));
+  color: #165b7b;
+}
+
+.component-type-badge.pump,
 .action-pill.action-on,
 .action-pill.action-power {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-  background: color-mix(in srgb, var(--accent) 13%, var(--surface-soft));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-soft));
   color: var(--accent-strong);
+}
+
+.component-type-badge.led,
+.action-pill.action-value {
+  border-color: color-mix(in srgb, #c5762f 42%, var(--line));
+  background: color-mix(in srgb, #c5762f 16%, var(--surface-soft));
+  color: #8a4e18;
 }
 
 .action-pill.action-off {
   border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
   background: color-mix(in srgb, var(--danger) 11%, var(--surface-soft));
   color: var(--danger);
-}
-
-.action-pill.action-pump {
-  border-color: color-mix(in srgb, #1e749d 42%, var(--line));
-  background: color-mix(in srgb, #1e749d 12%, var(--surface-soft));
-  color: #165b7b;
-}
-
-.action-pill.action-value {
-  border-color: color-mix(in srgb, #c5762f 42%, var(--line));
-  background: color-mix(in srgb, #c5762f 13%, var(--surface-soft));
-  color: #8a4e18;
 }
 
 .control-cell {
@@ -231,13 +218,6 @@ td {
   display: grid;
   gap: 0.4rem;
   min-width: 220px;
-}
-
-.timer-inputs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .timer-selects {
@@ -265,24 +245,9 @@ td {
   font-variant-numeric: tabular-nums;
 }
 
-.timer-note {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
 .timer-actions {
   display: flex;
   justify-content: flex-start;
-}
-
-.timer-inputs input[type='time'] {
-  border-radius: 0.55rem;
-  border: 1px solid var(--line);
-  background: var(--surface-elevated);
-  color: var(--text);
-  padding: 0.3rem 0.5rem;
-  font-variant-numeric: tabular-nums;
 }
 
 .timer-display {
@@ -367,14 +332,10 @@ td {
   animation: pump-drop var(--pulse-duration) ease-in-out infinite;
 }
 
-.control-visual.paused .rotor {
-  animation-play-state: paused;
-  opacity: 0.4;
-}
-
+.control-visual.paused .rotor,
 .control-visual.paused .hub {
   animation-play-state: paused;
-  opacity: 0.45;
+  opacity: 0.42;
 }
 
 .toggle {
