@@ -27,17 +27,17 @@ public class DeviceControlController {
                 .build();
     }
 
-    @GetMapping("/{deviceId}/actions/logs")
+    @GetMapping("/{deviceId}/logs")
     public ApiResponse<Page<DeviceActionResponse>> getActionLogs(
             @PathVariable String deviceId,
+            @RequestParam(required = false) String component, // Thêm param lọc theo component
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        Page<DeviceActionResponse> logs = service.getDeviceActionLogs(deviceId, startDate, endDate, page, size);
         return ApiResponse.<Page<DeviceActionResponse>>builder()
-                .result(logs)
+                .result(service.getDeviceActionLogs(deviceId, component, startDate, endDate, page, size))
                 .build();
     }
 }

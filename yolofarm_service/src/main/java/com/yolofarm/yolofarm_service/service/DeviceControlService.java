@@ -99,7 +99,7 @@ public class DeviceControlService {
         }
     }
 
-    public Page<DeviceActionResponse> getDeviceActionLogs(String deviceId, LocalDateTime startDate, LocalDateTime endDate, int page, int size) {
+    public Page<DeviceActionResponse> getDeviceActionLogs(String deviceId, String component, LocalDateTime startDate, LocalDateTime endDate, int page, int size) {
 
         Device device = deviceRepository.findByDeviceIdAndActiveTrue(deviceId)
                 .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
@@ -109,7 +109,7 @@ public class DeviceControlService {
 
         Pageable pageable = PageRequest.of(page, size);
 
-        return actionRepository.getActionLogs(deviceId, startDate, endDate, pageable)
+        return actionRepository.getActionLogs(deviceId, component, startDate, endDate, pageable)
                 .map(action -> DeviceActionResponse.builder()
                         .id(action.getId())
                         .deviceId(device.getDeviceId())

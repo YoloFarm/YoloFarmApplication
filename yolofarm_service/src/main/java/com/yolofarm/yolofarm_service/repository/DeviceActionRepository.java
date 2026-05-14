@@ -13,11 +13,13 @@ import java.time.LocalDateTime;
 @Repository
 public interface DeviceActionRepository extends JpaRepository<DeviceAction, Long> {
     @Query("SELECT a FROM DeviceAction a WHERE a.device.deviceId = :deviceId " +
+            "AND (:component IS NULL OR a.command = :component) " +
             "AND (CAST(:startDate AS timestamp) IS NULL OR a.createdAt >= :startDate) " +
             "AND (CAST(:endDate AS timestamp) IS NULL OR a.createdAt <= :endDate) " +
             "ORDER BY a.createdAt DESC")
     Page<DeviceAction> getActionLogs(
             @Param("deviceId") String deviceId,
+            @Param("component") String component,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             Pageable pageable
