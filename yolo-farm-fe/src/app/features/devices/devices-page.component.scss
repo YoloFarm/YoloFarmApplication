@@ -111,6 +111,106 @@ td {
   gap: 0.75rem;
 }
 
+.action-log-card {
+  margin-top: 0.25rem;
+}
+
+.action-log-filters {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 0.7fr auto;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 34%, var(--line));
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-soft));
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.log-component {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.component-type-badge {
+  width: 3.2rem;
+  min-width: 3.2rem;
+  height: 2.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.component-type-badge.fan {
+  border-color: color-mix(in srgb, #1e749d 42%, var(--line));
+  background: color-mix(in srgb, #1e749d 14%, var(--surface-soft));
+  color: #165b7b;
+}
+
+.component-type-badge.pump {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-soft));
+  color: var(--accent-strong);
+}
+
+.component-type-badge.led {
+  border-color: color-mix(in srgb, #c5762f 42%, var(--line));
+  background: color-mix(in srgb, #c5762f 16%, var(--surface-soft));
+  color: #8a4e18;
+}
+
+.component-glyph {
+  line-height: 1;
+}
+
+.action-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 0.26rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.action-pill.action-on,
+.action-pill.action-power {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface-soft));
+  color: var(--accent-strong);
+}
+
+.action-pill.action-off {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
+  background: color-mix(in srgb, var(--danger) 11%, var(--surface-soft));
+  color: var(--danger);
+}
+
+.action-pill.action-pump {
+  border-color: color-mix(in srgb, #1e749d 42%, var(--line));
+  background: color-mix(in srgb, #1e749d 12%, var(--surface-soft));
+  color: #165b7b;
+}
+
+.action-pill.action-value {
+  border-color: color-mix(in srgb, #c5762f 42%, var(--line));
+  background: color-mix(in srgb, #c5762f 13%, var(--surface-soft));
+  color: #8a4e18;
+}
+
 .control-cell {
   min-width: 260px;
 }
@@ -394,6 +494,14 @@ td {
   color: var(--text-muted);
 }
 
+.log-pagination {
+  justify-content: flex-start;
+}
+
+.log-pagination p {
+  margin-inline: auto;
+}
+
 .alert {
   margin: 0;
   padding: 0.65rem 0.8rem;
@@ -422,9 +530,17 @@ td {
     grid-template-columns: 1fr;
   }
 
+  .action-log-filters {
+    grid-template-columns: 1fr;
+  }
+
   .pagination {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .log-pagination p {
+    margin-inline: 0;
   }
 
   .component-control {

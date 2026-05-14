@@ -8,6 +8,7 @@ import {
   DeviceComponentRequest,
   DeviceRequest
 } from '../../core/models/device.models';
+import { DeviceActionLog } from '../../core/models/control.models';
 import { ControlService } from '../../core/services/control.service';
 import { DeviceService } from '../../core/services/device.service';
 import { AuthStore } from '../../core/store/auth.store';
@@ -26,6 +27,7 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
   private readonly controlService = inject(ControlService);
   protected readonly authStore = inject(AuthStore);
   private readonly pumpTimers = new Map<number, ReturnType<typeof setInterval>>();
+  private componentRefreshTimer: ReturnType<typeof setInterval> | null = null;
   private readonly maxPumpSeconds = 24 * 60 * 60 - 1;
   private readonly pumpStorageKey = 'yolo-farm:pump-countdowns';
   protected readonly pumpHourOptions = Array.from({ length: 24 }, (_, index) => index);
@@ -52,6 +54,13 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
   protected readonly isAdmin = signal(false);
   protected readonly pumpInputs = signal<Record<number, number>>({});
   protected readonly pumpCountdowns = signal<Record<number, number>>({});
+  protected readonly actionLogs = signal<DeviceActionLog[]>([]);
+  protected readonly actionLogsLoading = signal(false);
+  protected readonly actionLogsErrorMessage = signal<string | null>(null);
+  protected readonly actionLogPage = signal(0);
+  protected readonly actionLogSize = signal(10);
+  protected readonly actionLogTotalPages = signal(0);
+  protected readonly actionLogTotalElements = signal(0);
 
   protected readonly form = this.fb.nonNullable.group({
     deviceId: ['', Validators.required],
@@ -63,15 +72,32 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
     codeName: ['', Validators.required]
   });
 
+  protected readonly actionLogFilterForm = this.fb.nonNullable.group({
+    component: [''],
+    startDate: [''],
+    endDate: [''],
+    size: [10]
+  });
+
   ngOnInit(): void {
     this.isAdmin.set(this.authStore.role() === 'ADMIN');
     this.loadDevices(0);
-    setInterval(() => {
-        this.loadComponents(this.selectedDevice()?.deviceId || '');
+    this.componentRefreshTimer = setInterval(() => {
+      const selectedDevice = this.selectedDevice();
+      if (!selectedDevice) {
+        return;
+      }
+
+      this.loadComponents(selectedDevice.deviceId);
     }, 30000);
   }
 
   ngOnDestroy(): void {
+    if (this.componentRefreshTimer) {
+      clearInterval(this.componentRefreshTimer);
+      this.componentRefreshTimer = null;
+    }
+
     this.clearVisiblePumpState();
   }
 
@@ -159,7 +185,9 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
   protected selectDevice(device: Device): void {
     this.selectedDevice.set(device);
     this.componentsInfoMessage.set(null);
+    this.resetActionLogFilters();
     this.loadComponents(device.deviceId);
+    this.loadActionLogs(0);
   }
 
   protected reloadSelectedDeviceComponents(): void {
@@ -457,6 +485,11 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
   }
 
   private loadComponents(deviceId: string): void {
+    if (!deviceId) {
+      this.components.set([]);
+      return;
+    }
+
     this.componentsLoading.set(true);
     this.componentsErrorMessage.set(null);
 
@@ -465,8 +498,9 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
       .pipe(finalize(() => this.componentsLoading.set(false)))
       .subscribe({
         next: (components) => {
-          this.components.set(components);
-          this.restorePumpState(components);
+          const sortedComponents = this.sortComponentsById(components);
+          this.components.set(sortedComponents);
+          this.restorePumpState(sortedComponents);
         },
         error: (error: unknown) => {
           this.components.set([]);
@@ -480,6 +514,11 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
   private clearComponentSelection(): void {
     this.selectedDevice.set(null);
     this.components.set([]);
+    this.actionLogs.set([]);
+    this.actionLogsErrorMessage.set(null);
+    this.actionLogPage.set(0);
+    this.actionLogTotalPages.set(0);
+    this.actionLogTotalElements.set(0);
     this.componentsErrorMessage.set(null);
     this.componentsInfoMessage.set(null);
     this.resetComponentForm();
@@ -509,6 +548,7 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
       .sendCommand({ deviceId, command: component.codeName, action })
       .subscribe({
         next: () => {
+          this.loadActionLogs(0);
           onSuccess?.();
         },
         error: (error: unknown) => {
@@ -525,10 +565,168 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
 
   private updateComponentStatus(componentId: number, status: string): void {
     this.components.update((items) =>
-      items.map((component) =>
-        component.id === componentId ? { ...component, status } : component
+      this.sortComponentsById(
+        items.map((component) =>
+          component.id === componentId ? { ...component, status } : component
+        )
       )
     );
+  }
+
+  protected loadActionLogs(page = this.actionLogPage()): void {
+    const selectedDevice = this.selectedDevice();
+    if (!selectedDevice) {
+      this.actionLogs.set([]);
+      return;
+    }
+
+    const rawFilters = this.actionLogFilterForm.getRawValue();
+    const size = Number(rawFilters.size) || 10;
+
+    this.actionLogsLoading.set(true);
+    this.actionLogsErrorMessage.set(null);
+
+    this.controlService
+      .getActionLogs(selectedDevice.deviceId, {
+        component: this.normalizeOptionalFilter(rawFilters.component),
+        startDate: this.normalizeOptionalFilter(rawFilters.startDate),
+        endDate: this.normalizeOptionalFilter(rawFilters.endDate),
+        page,
+        size
+      })
+      .pipe(finalize(() => this.actionLogsLoading.set(false)))
+      .subscribe({
+        next: (response) => {
+          this.actionLogs.set(response.content);
+          this.actionLogPage.set(response.number);
+          this.actionLogSize.set(response.size);
+          this.actionLogTotalPages.set(response.totalPages);
+          this.actionLogTotalElements.set(response.totalElements);
+          this.actionLogFilterForm.patchValue({ size: response.size }, { emitEvent: false });
+        },
+        error: (error: unknown) => {
+          this.actionLogs.set([]);
+          this.actionLogsErrorMessage.set(
+            extractApiErrorMessage(error, 'Unable to fetch action logs.')
+          );
+        }
+      });
+  }
+
+  protected applyActionLogFilters(): void {
+    this.loadActionLogs(0);
+  }
+
+  protected clearActionLogFilters(): void {
+    this.actionLogFilterForm.reset({
+      component: '',
+      startDate: '',
+      endDate: '',
+      size: this.actionLogSize()
+    });
+    this.loadActionLogs(0);
+  }
+
+  protected nextActionLogPage(): void {
+    if (this.actionLogPage() + 1 >= this.actionLogTotalPages()) {
+      return;
+    }
+
+    this.loadActionLogs(this.actionLogPage() + 1);
+  }
+
+  protected previousActionLogPage(): void {
+    if (this.actionLogPage() === 0) {
+      return;
+    }
+
+    this.loadActionLogs(this.actionLogPage() - 1);
+  }
+
+  protected firstActionLogPage(): void {
+    if (this.actionLogPage() === 0) {
+      return;
+    }
+
+    this.loadActionLogs(0);
+  }
+
+  protected lastActionLogPage(): void {
+    const lastPage = this.actionLogTotalPages() - 1;
+    if (lastPage <= 0 || this.actionLogPage() === lastPage) {
+      return;
+    }
+
+    this.loadActionLogs(lastPage);
+  }
+
+  protected actionLogComponentType(component: string): 'FAN' | 'PUMP' | 'LED' | 'UNKNOWN' {
+    const token = component.toUpperCase();
+    if (token.includes('FAN')) {
+      return 'FAN';
+    }
+
+    if (token.includes('PUMP')) {
+      return 'PUMP';
+    }
+
+    if (token.includes('LED')) {
+      return 'LED';
+    }
+
+    return 'UNKNOWN';
+  }
+
+  protected actionLogComponentLabel(component: string): string {
+    const type = this.actionLogComponentType(component);
+    if (type === 'UNKNOWN') {
+      return 'Device';
+    }
+
+    return type;
+  }
+
+  protected actionLogActionLabel(log: DeviceActionLog): string {
+    const action = String(log.action ?? '').trim();
+    const type = this.actionLogComponentType(log.component);
+    const numericValue = Number.parseInt(action, 10);
+
+    if (type === 'FAN' && !Number.isNaN(numericValue)) {
+      return `Power ${numericValue}%`;
+    }
+
+    if (type === 'PUMP' && !Number.isNaN(numericValue)) {
+      return `Run ${this.formatDuration(numericValue)}`;
+    }
+
+    if (type === 'LED') {
+      return action.toUpperCase() === 'ON' ? 'Turn ON' : action.toUpperCase() === 'OFF' ? 'Turn OFF' : action;
+    }
+
+    return action || '--';
+  }
+
+  protected actionLogActionClass(log: DeviceActionLog): string {
+    const action = String(log.action ?? '').trim().toUpperCase();
+    const type = this.actionLogComponentType(log.component);
+
+    if (action === 'ON') {
+      return 'action-on';
+    }
+
+    if (action === 'OFF' || action === '0') {
+      return 'action-off';
+    }
+
+    if (type === 'PUMP') {
+      return 'action-pump';
+    }
+
+    if (type === 'FAN') {
+      return 'action-power';
+    }
+
+    return 'action-value';
   }
 
   private parsePowerValue(raw: string | number | null | undefined): number {
@@ -542,6 +740,27 @@ export class DevicesPageComponent implements OnInit, OnDestroy {
     }
 
     return Math.min(100, Math.max(0, value));
+  }
+
+  private sortComponentsById(components: DeviceComponent[]): DeviceComponent[] {
+    return [...components].sort((left, right) => left.id - right.id);
+  }
+
+  private resetActionLogFilters(): void {
+    this.actionLogFilterForm.reset({
+      component: '',
+      startDate: '',
+      endDate: '',
+      size: this.actionLogSize()
+    });
+    this.actionLogPage.set(0);
+    this.actionLogs.set([]);
+    this.actionLogsErrorMessage.set(null);
+  }
+
+  private normalizeOptionalFilter(value: string): string | undefined {
+    const normalized = String(value ?? '').trim();
+    return normalized ? normalized : undefined;
   }
 
   private getPumpRemainingSeconds(component: DeviceComponent): number {

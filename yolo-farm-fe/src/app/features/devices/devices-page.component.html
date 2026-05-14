@@ -337,4 +337,177 @@
       </div>
     }
   </article>
+
+  <article class="card table-card action-log-card">
+    <div class="table-head">
+      <div class="components-title">
+        <h3>Action Logs</h3>
+        @if (selectedDevice()) {
+          <p class="subtitle">{{ selectedDevice()?.name }} ({{ selectedDevice()?.deviceId }})</p>
+        } @else {
+          <p class="subtitle">Select a device to view action logs.</p>
+        }
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="loadActionLogs()"
+        [disabled]="!selectedDevice() || actionLogsLoading()"
+      >
+        {{ actionLogsLoading() ? 'Loading...' : 'Refresh Logs' }}
+      </button>
+    </div>
+
+    @if (actionLogsErrorMessage()) {
+      <p class="alert danger">{{ actionLogsErrorMessage() }}</p>
+    }
+
+    @if (selectedDevice()) {
+      <form
+        [formGroup]="actionLogFilterForm"
+        (ngSubmit)="applyActionLogFilters()"
+        class="action-log-filters"
+      >
+        <label>
+          Component
+          <select formControlName="component">
+            <option value="">All components</option>
+            @for (component of components(); track component.id) {
+              <option [value]="component.codeName">
+                {{ component.name }} ({{ component.codeName }})
+              </option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Start date
+          <input type="datetime-local" formControlName="startDate" />
+        </label>
+
+        <label>
+          End date
+          <input type="datetime-local" formControlName="endDate" />
+        </label>
+
+        <label>
+          Page size
+          <select formControlName="size">
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+          </select>
+        </label>
+
+        <div class="filter-actions">
+          <button type="submit" class="btn" [disabled]="actionLogsLoading()">Apply Filters</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="clearActionLogFilters()"
+            [disabled]="actionLogsLoading()"
+          >
+            Clear
+          </button>
+        </div>
+      </form>
+
+      @if (actionLogsLoading()) {
+        <p class="subtitle">Loading action logs...</p>
+      }
+
+      @if (!actionLogsLoading() && !actionLogs().length && !actionLogsErrorMessage()) {
+        <p class="subtitle">No action logs found for this device.</p>
+      }
+
+      @if (actionLogs().length) {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Component</th>
+                <th>Action</th>
+                <th>Executed By</th>
+                <th>Executed At</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (log of actionLogs(); track log.id) {
+                <tr>
+                  <td>{{ log.id }}</td>
+                  <td>
+                    <div class="log-component">
+                      <span
+                        class="component-type-badge"
+                        [class.fan]="actionLogComponentType(log.component) === 'FAN'"
+                        [class.pump]="actionLogComponentType(log.component) === 'PUMP'"
+                        [class.led]="actionLogComponentType(log.component) === 'LED'"
+                      >
+                        <span class="component-glyph">{{ actionLogComponentLabel(log.component) }}</span>
+                      </span>
+                      <div>
+                        <strong>{{ log.component }}</strong>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="action-pill" [ngClass]="actionLogActionClass(log)">
+                      {{ actionLogActionLabel(log) }}
+                    </span>
+                  </td>
+                  <td>{{ log.executedBy || '--' }}</td>
+                  <td>{{ log.executedAt | date: 'short' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination log-pagination">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="firstActionLogPage()"
+            [disabled]="actionLogPage() === 0 || actionLogsLoading()"
+          >
+            First
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="previousActionLogPage()"
+            [disabled]="actionLogPage() === 0 || actionLogsLoading()"
+          >
+            Prev
+          </button>
+
+          <p>
+            Page {{ actionLogPage() + 1 }} / {{ actionLogTotalPages() || 1 }}
+            - {{ actionLogTotalElements() }} logs
+          </p>
+
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="nextActionLogPage()"
+            [disabled]="actionLogPage() + 1 >= actionLogTotalPages() || actionLogsLoading()"
+          >
+            Next
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="lastActionLogPage()"
+            [disabled]="actionLogPage() + 1 >= actionLogTotalPages() || actionLogsLoading()"
+          >
+            Last
+          </button>
+        </div>
+      }
+    }
+  </article>
 </section>
