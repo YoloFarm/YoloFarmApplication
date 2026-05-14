@@ -159,6 +159,7 @@ export class AlertRulesPageComponent implements OnInit {
       .pipe(finalize(() => this.deletingId.set(null)))
       .subscribe({
         next: () => {
+          this.rules.update((currentRules) => currentRules.filter((currentRule) => currentRule.id !== rule.id));
           this.infoMessage.set('Alert rule deleted successfully.');
           this.loadRules(this.selectedDeviceId());
         },

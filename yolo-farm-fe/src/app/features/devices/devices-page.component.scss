@@ -127,6 +127,68 @@ td {
   min-width: 180px;
 }
 
+.timer-control {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 220px;
+}
+
+.timer-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.timer-selects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.timer-selects label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.timer-selects select {
+  width: 100%;
+  border-radius: 0.55rem;
+  border: 1px solid var(--line);
+  background: var(--surface-elevated);
+  color: var(--text);
+  padding: 0.34rem 0.45rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.timer-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.timer-inputs input[type='time'] {
+  border-radius: 0.55rem;
+  border: 1px solid var(--line);
+  background: var(--surface-elevated);
+  color: var(--text);
+  padding: 0.3rem 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-display {
+  font-variant-numeric: tabular-nums;
+}
+
 .range-header {
   display: flex;
   justify-content: space-between;

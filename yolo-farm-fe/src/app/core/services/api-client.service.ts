@@ -30,6 +30,10 @@ export class ApiClientService {
     return this.unwrap<T>(this.http.put<ApiResponse<T> | T>(this.buildUrl(path), body));
   }
 
+  deleteText(path: string): Observable<void> {
+    return this.http.delete(this.buildUrl(path), { responseType: 'text' }).pipe(map(() => undefined));
+  }
+
   delete<T>(path: string): Observable<T> {
     return this.unwrap<T>(this.http.delete<ApiResponse<T> | T>(this.buildUrl(path)));
   }
